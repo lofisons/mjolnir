@@ -222,3 +222,23 @@ input[type="text"] {
     animation: none !important;
   }
 }
+
+/* scrollbars: a hairline, like every other edge */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--edge) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--edge);
+}
+::-webkit-scrollbar-button {
+  display: none;
+}

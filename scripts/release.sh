@@ -32,6 +32,9 @@ pnpm build >/dev/null
 node tools/build_demos.mjs >/dev/null
 pnpm exec vite build >/dev/null
 cp LICENSE dist/LICENSE.txt
+# the same site, kept in the repository so any static host (GitHub Pages
+# from main, /docs) can serve it
+rm -rf docs && cp -r dist docs && touch docs/.nojekyll
 if has web; then NAME="Mjolnir-$V-web.zip" pack x dist .; fi
 
 if has linux || has windows || has mac; then
