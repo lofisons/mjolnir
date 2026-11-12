@@ -322,6 +322,9 @@ pub enum Action {
     Launch {
         track: usize,
         slot: Option<usize>,
+        /// Without waiting for the bar.
+        #[serde(default)]
+        now: bool,
     },
     LaunchScene {
         scene: usize,
@@ -761,7 +764,7 @@ impl App {
                 slot,
                 groove,
             } => c.load_groove(track, slot, groove)?,
-            Action::Launch { track, slot } => c.launch(track, slot)?,
+            Action::Launch { track, slot, now } => c.launch(track, slot, now)?,
             Action::LaunchScene { scene } => c.launch_scene(scene)?,
             Action::StopAll => c.stop_all_clips(),
             Action::RenameScene { scene, name } => c.rename_scene(scene, name)?,

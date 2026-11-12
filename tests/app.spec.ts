@@ -270,3 +270,23 @@ test("a loop is carried to another octave or note, and doubled at an interval", 
   await page.getByRole("button", { name: "undo" }).click();
   await expect(page.locator(".sheet .note")).toHaveCount(6);
 });
+
+test("one loop of a playing row stops at the bar; a second touch stops it at once", async ({ page }) => {
+  await page.getByLabel("section C: play the row").click();
+  await expect(page.locator(".cell.live")).toHaveCount(5);
+  const sub = page.getByLabel(/^Shadow sub, section C/);
+  // told to stop: it says so while it plays out its bar, and the others go on
+  await sub.click();
+  await expect(sub).toHaveClass(/leaving/);
+  await expect(sub).not.toHaveClass(/live/, { timeout: 8000 });
+  await expect(page.locator(".cell.live")).toHaveCount(4);
+  // a second touch does not wait for the bar, and does not bring it back
+  const bell = page.getByLabel(/^Dark bell, section C/);
+  await bell.click();
+  await expect(bell).toHaveClass(/leaving/);
+  await page.waitForTimeout(450);
+  await bell.click();
+  await expect(bell).not.toHaveClass(/live/, { timeout: 600 });
+  await page.waitForTimeout(3500);
+  await expect(page.locator(".cell.live")).toHaveCount(3);
+});

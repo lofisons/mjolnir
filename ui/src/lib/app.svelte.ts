@@ -447,8 +447,21 @@ export function sounding(t: number): number | null {
   return st.queued ?? st.active;
 }
 
+// The loop each track was last told to stop, for the moment before the status says so.
+const stopping = new Map<number, { slot: number; at: number }>();
+
+/** The loop a track still plays but will stop at the bar, or null. */
+export function leaving(t: number): number | null {
+  const st = app.status?.tracks[t];
+  if (!st || !playing() || app.status?.song_mode) return null;
+  if (st.queued_stop) return st.active;
+  const a = stopping.get(t);
+  return a && performance.now() - a.at < 400 && st.active === a.slot ? a.slot : null;
+}
+
 /** Start a loop from the grid; the transport starts with the first. */
 export async function startCell(t: number, s: number): Promise<void> {
+  stopping.delete(t);
   asked.set(t, { slot: s, at: performance.now() });
   if (app.status?.song_mode) await act({ type: "set_song_mode", on: false });
   await act({ type: "launch", track: t, slot: s });
@@ -459,8 +472,15 @@ export async function startCell(t: number, s: number): Promise<void> {
 export async function toggleCell(t: number, s: number): Promise<boolean> {
   app.section = s;
   if (app.track !== t) await selectTrack(t);
+  // a loop already told to stop is waiting for the bar: a second touch stops it now
+  if (leaving(t) === s) {
+    asked.set(t, { slot: null, at: performance.now() });
+    await act({ type: "launch", track: t, slot: null, now: true });
+    return false;
+  }
   if (sounding(t) === s) {
     asked.set(t, { slot: null, at: performance.now() });
+    stopping.set(t, { slot: s, at: performance.now() });
     await act({ type: "launch", track: t, slot: null });
     return false;
   }

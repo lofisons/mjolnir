@@ -1106,12 +1106,13 @@ impl Controller {
 
     // ------------------------------------------------------ session / scenes
 
-    pub fn launch(&mut self, track: usize, slot: Option<usize>) -> Result<(), String> {
+    /// Start or stop a loop: on the next bar, or `now`.
+    pub fn launch(&mut self, track: usize, slot: Option<usize>, now: bool) -> Result<(), String> {
         self.check_track(track)?;
         self.send(Command::Launch {
             track,
             slot,
-            immediate: false,
+            immediate: now,
         });
         Ok(())
     }
@@ -2402,7 +2403,7 @@ mod tests {
     #[test]
     fn records_automation_while_playing() {
         let (mut c, mut e) = setup();
-        c.launch(0, Some(1)).unwrap();
+        c.launch(0, Some(1), false).unwrap();
         c.play();
         run(&mut e, 0.1);
         c.record_automation = true;
@@ -2690,7 +2691,7 @@ mod tests {
         assert_eq!(st.tracks[0].active, Some(1));
         assert_eq!(st.tracks[1].active, Some(1));
         // session launches are ignored in song mode
-        c.launch(0, Some(0)).unwrap();
+        c.launch(0, Some(0), false).unwrap();
         run(&mut e, 0.05);
         assert_eq!(c.status().tracks[0].active, Some(1));
     }

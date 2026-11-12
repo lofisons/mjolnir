@@ -84,7 +84,7 @@ fn random_actions_never_break_anything() {
                 c.stop();
                 Ok(())
             }
-            2 => c.launch(t, Some(slot)),
+            2 => c.launch(t, Some(slot), false),
             3 => c.launch_scene(rng.below(8)),
             4 => c.pad_on(t, rng.below(16), rng.unit()),
             5 => c.pad_off(t, rng.below(16)),

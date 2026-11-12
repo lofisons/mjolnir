@@ -260,7 +260,7 @@ export type Action =
   | { type: "clear_pattern"; track: number; slot: number }
   | { type: "rename_pattern"; track: number; slot: number; name: string }
   | { type: "load_groove"; track: number; slot: number; groove: string }
-  | { type: "launch"; track: number; slot: number | null }
+  | { type: "launch"; track: number; slot: number | null; now?: boolean }
   | { type: "launch_scene"; scene: number }
   | { type: "stop_all" }
   | { type: "rename_scene"; scene: number; name: string }

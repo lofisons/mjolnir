@@ -77,15 +77,17 @@
         {@const st = app.status?.tracks[i]}
         {@const live = playing() && !app.status?.song_mode && st?.active === s}
         {@const queued = playing() && st?.queued === s}
+        {@const leaving = live && !!st?.queued_stop}
         <button
           class="cell"
           class:filled={!!p}
           class:sel={app.track === i && app.section === s}
           class:live
           class:queued
+          class:leaving
           style="--id: {trackColor(t)}"
-          aria-label="{t.name}, section {scene.name}{p ? (live ? ', playing' : '') : ', empty'}"
-          title={p ? "click: play or stop · double click: open" : "open"}
+          aria-label="{t.name}, section {scene.name}{p ? (leaving ? ', stopping' : live ? ', playing' : '') : ', empty'}"
+          title={p ? (leaving ? "stops at the bar · click: stop now" : "click: play or stop · double click: open") : "open"}
           onclick={() => cell(i, s)}
         >
           {#if p}
@@ -94,6 +96,7 @@
               <span class="sweep" style="transform: scaleX({st?.progress ?? 0})"></span>
             {/if}
             {#if queued}<span class="led yl blink corner"></span>{/if}
+            {#if leaving}<span class="led rd blink corner"></span>{/if}
           {:else}
             <span class="plus">+</span>
           {/if}
@@ -222,6 +225,10 @@
   }
   .cell.live {
     background: color-mix(in srgb, var(--id) 26%, transparent);
+  }
+  /* told to stop, playing out its bar */
+  .cell.leaving .notes {
+    opacity: 0.45;
   }
   .cell.queued {
     border-style: dashed;
