@@ -238,6 +238,16 @@
       <button aria-pressed={t.mute} onclick={() => act({ type: "set_mute", track: app.track, mute: !t.mute })}>mute</button>
       <button aria-pressed={t.solo} onclick={() => act({ type: "set_solo", track: app.track, solo: !t.solo })}>solo</button>
 
+      <Knob
+        size={28}
+        value={t.humanize}
+        label="loose"
+        reset={0.3}
+        onchange={(v) => {
+          t.humanize = v;
+          live({ type: "set_humanize", track: app.track, amount: v });
+        }}
+      />
       <span class="grow"></span>
       <button disabled={(app.project?.tracks.length ?? 0) < 2} onclick={removeTrack}>{tx("remove track")}</button>
     </div>

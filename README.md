@@ -1,57 +1,70 @@
 # Mjolnir
 
-An open instrument for sketching beats: pads, steps, loops and a small timeline, the same on a phone, a browser and a desktop. Made for slow, dark, dusty music.
+An open instrument for sketching beats and finishing them: pads, steps, a piano roll, loops and a timeline, the same on a phone, in a browser and on a desktop. Made for slow, dark, dusty music.
 
-Status: in the workshop. It plays, records, arranges and exports in a browser; the desktop shell and the plugin are on the way.
+![The loops grid, a drum track, a piano roll and the sound browser on a phone](guide/img/phones.jpg)
 
-## What is here
+![The loops grid on a desktop](guide/img/desk-loops.jpg)
+
+## Get it
+
+| Where | What |
+|---|---|
+| Any browser | Open the web app and, if you like, install it from the browser's menu. It then works with no network. |
+| Linux | An AppImage |
+| Windows | An installer, or a portable exe |
+| macOS | A disk image for Apple silicon, one for Intel |
+| Android | An APK |
+
+Every package is built by one script, on one Linux machine: see [INSTALL.md](INSTALL.md) for how to install each and how to build them yourself.
+
+## What it does
+
+- **Loops first.** Tracks across, eight sections down. A click plays a loop, another stops it, a double click steps inside. A letter plays its whole row.
+- **Drums**: sixteen pads and sixteen step keys. Every step has a level, a chance of sounding and a number of repeats.
+- **Melody**: a piano roll over a keyboard or pads. Chords write and play the chord of the key on any note.
+- **Capture**: keep what you just played, even though nothing was recording.
+- **Sounds, by kind.** Kits and one-shots cut from lofisons' own tracks; a soft piano, strings, a flute and other real instruments from a public-domain orchestra; a synth with ten engines (strings, wavetable, FM, a plucked and a bowed string, bells, a vowel…) whose every knob is open; and your own: a file or the microphone becomes a sound.
+- **A room for the whole mix**: every track sends to one plate reverb and one tape echo. The pump makes room for the kick. Tape, vinyl and warmth on the master.
+- **Punch effects**, held with a finger: loop, stutter, tape stop, filters, crush, dub echo, frozen reverb.
+- **A song**: one lane per track; click to place a loop, drag to move it. Export the mix, one file per track, MIDI, or a single row as a loop.
+- **Sets** kept on the device, saved to files you own, and three demos to listen to.
+- English and Spanish. A dark theme and a paper one. MIDI controllers. Keyboard for everything.
+
+The manual is in [guide/GUIDE.md](guide/GUIDE.md).
+
+## How it is made
 
 | Path | What |
 |---|---|
-| `crates/engine` | The audio engine, sequencer and project model. Pure Rust, hand-written DSP, real-time safe, tested. |
+| `crates/engine` | The audio engine, sequencer and project model. Rust, hand-written DSP, real-time safe, tested. |
 | `crates/app` | Every action a person can take, as JSON in and JSON out. One door for every host. |
 | `crates/web` | The engine as a WebAssembly module with a plain C interface, for an AudioWorklet. |
 | `ui` | The interface (Svelte), drawn with VSGARD. It talks to the engine only through actions. |
+| `desktop` | The desktop shell (Electron) around the same web app. |
+| `android` | The Android shell (a WebView), built by hand with no Android Studio. |
+| `tools` | The scripts that build the sounds, the demos and the icon. |
+| `docs` | The built web app, ready to be served as a static site. |
 
-The same engine and the same interface run everywhere. A host only provides sound out and files:
+One engine and one interface run everywhere; a host only lends sound out and files. More in [guide/ARCHITECTURE.md](guide/ARCHITECTURE.md).
 
-- **Browser and phone**: WebAssembly inside an AudioWorklet. Works today.
-- **Desktop**: a native shell around the same interface, with the engine on the system's audio. Next.
-- **Plugin** (CLAP, VST3): the engine with its sounds; the DAW keeps the timeline. Later.
-
-## Run it
+## Work on it
 
 Needs Rust with the `wasm32-unknown-unknown` target, Node 22 and pnpm.
 
 ```sh
 rustup target add wasm32-unknown-unknown
 pnpm install
-pnpm wasm      # build the engine into ui/public/mjolnir.wasm
+pnpm wasm      # the engine, into ui/public/mjolnir.wasm
 pnpm dev       # http://localhost:5173
 ```
 
-`pnpm build` writes a static site to `dist/`: any static host serves it.
-
-## Check it
-
 ```sh
-cargo test --workspace
-pnpm check
+pnpm test      # the engine's tests, the type check, and the app driven in a browser
 ```
 
-## Play it
-
-- **loops** is home: tracks across, eight sections down, each track in its own colour. A click plays a loop and another stops it; a double click steps inside. An empty cell opens on a click. A section's letter plays its row.
-- **inside a drum track**: touch a pad to hear it and select it; the sixteen step keys write it into the loop.
-- **inside a melodic track**: a piano roll (touch to write a note, drag to move it, drag its right edge to stretch it, touch it to remove it) over a keyboard or pads. `chords` writes and plays the chord of the key on every note.
-- **sound**: sounds filed by kind (bass, keys, pads, leads; kits and chops for drums), the seven macros, and for a synth every part of it.
-- **song**: one lane per track with a loop in hand; a click places it, drag a clip to move it, its right edge to change its length, ctrl-drag to copy, double click to open it. Export WAV and MIDI.
-- **set**: tempo, swing, key, the master's tape, files.
-
-Keys: `space` plays and stops; in a drum track `z x c v / a s d f / q w e r / 1 2 3 4` are the pads; in a melodic track `a w s e d f t g y h u j k` is a piano; `esc` goes back to the loops; `tab` changes face; `ctrl z` undoes; `delete` removes the picked clip.
-
-Work is kept in the browser between visits; `save file` writes a `.mjolnir` file you own.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Where it comes from
 
-The engine was written for Yggdrasil and is carried over whole; Yggdrasil's project files (`.yggdrasil`) open here. The Shadow and Session kits, the chops, the sampled subs, the airs and the leads are cut from lofisons' own tracks; the soft piano, strings and other real instruments come from a CC0 orchestra: see [SAMPLES.md](SAMPLES.md). Code: MIT.
+The engine began in Yggdrasil; its project files (`.yggdrasil`) still open here. The sounds: [SAMPLES.md](SAMPLES.md). Code: MIT.

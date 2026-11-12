@@ -181,6 +181,7 @@
   .tname {
     overflow: hidden;
     max-height: 28px;
+    overflow-wrap: anywhere;
   }
   .meter {
     position: absolute;

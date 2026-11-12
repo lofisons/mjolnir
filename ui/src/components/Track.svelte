@@ -115,6 +115,17 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* on a phone the other tracks are their colours; the one on screen has its name */
+  @media (max-width: 520px) {
+    .tab:not(.narrow):not([aria-selected="true"]) {
+      flex: 0 0 34px;
+      justify-content: center;
+      padding: 0;
+    }
+    .tab:not(.narrow):not([aria-selected="true"]) .tname {
+      display: none;
+    }
+  }
   .keep {
     flex: none;
     align-self: center;
