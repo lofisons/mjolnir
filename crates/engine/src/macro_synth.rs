@@ -7,12 +7,12 @@
 //! a plucked and a bowed string, struck bars and bells, a vowel, a swarm of
 //! saws and the wind.
 
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::TAU;
 use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
-use crate::dsp::{midi_to_hz, Adsr, Noise, Svf};
+use crate::dsp::{midi_to_hz, sin_turns, sine_table, Adsr, Noise, Svf};
 use crate::sound::ParamSpec;
 
 pub const ENGINES: [&str; 10] = [
@@ -573,17 +573,6 @@ fn tables() -> &'static Vec<f32> {
     })
 }
 
-#[inline]
-fn table_read(wave: usize, mip: usize, phase: f32) -> f32 {
-    let t = &tables()[(wave * MIPS.len() + mip) * TABLE..][..TABLE];
-    let x = phase * TABLE as f32;
-    let i = x as usize;
-    let f = x - i as f32;
-    let a = t[i & (TABLE - 1)];
-    let b = t[(i + 1) & (TABLE - 1)];
-    a + (b - a) * f
-}
-
 /// PolyBLEP residual: rounds the step of a saw so it does not alias.
 #[inline]
 fn blep(t: f32, dt: f32) -> f32 {
@@ -727,6 +716,7 @@ impl Voice {
         let dt = f / sr;
         let (h, t, m) = (p.harmonics, p.timbre, p.morph);
         let gain = self.vel * p.level;
+        let sine = sine_table();
         match p.engine.round() as usize {
             // ---- string machine: three saws a hair apart and one an octave
             // up, morphing to a hollow pulse
@@ -763,20 +753,28 @@ impl Voice {
                 let w = (pos as usize).min(WAVES - 2);
                 let mix = pos - w as f32;
                 let fold = 1.0 + t * 2.4;
+                let all = tables();
+                let lo = &all[(w * MIPS.len() + mip) * TABLE..][..TABLE];
+                let hi = &all[((w + 1) * MIPS.len() + mip) * TABLE..][..TABLE];
+                let read = |ph: f32| {
+                    let x = ph * TABLE as f32;
+                    let i = x as usize & (TABLE - 1);
+                    let j = (i + 1) & (TABLE - 1);
+                    let f = x - x.floor();
+                    let a = lo[i] + (lo[j] - lo[i]) * f;
+                    let b = hi[i] + (hi[j] - hi[i]) * f;
+                    a + (b - a) * mix
+                };
                 for o in out.iter_mut() {
                     self.ph[0] = (self.ph[0] + dt).fract();
                     self.ph[1] = (self.ph[1] + dt * 1.0052).fract();
                     self.ph[2] = (self.ph[2] + dt * 0.5).fract();
-                    let read = |ph: f32| {
-                        let a = table_read(w, mip, ph);
-                        a + (table_read(w + 1, mip, ph) - a) * mix
-                    };
                     let mut x = read(self.ph[0]);
                     if t > 0.01 {
-                        x = (x * fold * PI * 0.5).sin();
+                        x = sin_turns(sine, x * fold * 0.25);
                     }
                     let double = read(self.ph[1]);
-                    let sub = (TAU * self.ph[2]).sin();
+                    let sub = sin_turns(sine, self.ph[2]);
                     let y = x * (1.0 - 0.35 * m) + double * m * 0.45 + sub * m * 0.4;
                     *o += y * self.env.next() * gain * 0.5;
                 }
@@ -799,11 +797,10 @@ impl Voice {
                 let norm = 1.0 / sum.max(0.3);
                 for o in out.iter_mut() {
                     self.ph[0] = (self.ph[0] + dt).fract();
-                    let w = TAU * self.ph[0];
                     let mut x = 0.0;
                     for (k, a) in amps.iter().enumerate() {
                         if *a > 0.001 {
-                            x += a * ((k + 1) as f32 * w).sin();
+                            x += a * sin_turns(sine, (k + 1) as f32 * self.ph[0]);
                         }
                     }
                     *o += x * norm * self.env.next() * gain * 0.6;
@@ -819,10 +816,10 @@ impl Voice {
                     self.exc *= self.exc_coef;
                     self.ph[0] = (self.ph[0] + dt).fract();
                     self.ph[1] = (self.ph[1] + dm).fract();
-                    let modulator = (TAU * self.ph[1] + fb * self.fb).sin();
+                    let modulator = sin_turns(sine, self.ph[1] + fb * self.fb / TAU);
                     self.fb = modulator;
                     let depth = index * (0.25 + 0.75 * self.exc);
-                    let x = (TAU * self.ph[0] + depth * modulator).sin();
+                    let x = sin_turns(sine, self.ph[0] + depth * modulator / TAU);
                     *o += x * self.env.next() * gain * 0.6;
                 }
             }
@@ -854,7 +851,7 @@ impl Voice {
                     let mut length = len;
                     if vib_depth > 0.0 {
                         self.ph[7] = (self.ph[7] + 5.3 / sr).fract();
-                        length *= 1.0 + vib_depth * (TAU * self.ph[7]).sin() * e.min(1.0);
+                        length *= 1.0 + vib_depth * sin_turns(sine, self.ph[7]) * e.min(1.0);
                     }
                     let read = self.wpos as f32 + MAX_LINE as f32 - length;
                     let i = read as usize;
@@ -937,7 +934,7 @@ impl Voice {
                 }
                 for o in out.iter_mut() {
                     self.ph[7] = (self.ph[7] + 5.1 / sr).fract();
-                    let vib = 1.0 + 0.004 * (TAU * self.ph[7]).sin();
+                    let vib = 1.0 + 0.004 * sin_turns(sine, self.ph[7]);
                     let buzz = saw(&mut self.ph[0], dt * vib);
                     let x = buzz * (1.0 - 0.5 * m) + self.noise.next() * m * 0.5;
                     let y = self.formants[0].process(x).band
@@ -985,8 +982,9 @@ impl Voice {
 struct Ensemble {
     line: Vec<f32>,
     pos: usize,
-    slow: f32,
-    fast: f32,
+    slow: crate::dsp::Turn,
+    fast: crate::dsp::Turn,
+    ready: bool,
 }
 
 impl Ensemble {
@@ -994,31 +992,43 @@ impl Ensemble {
         Ensemble {
             line: vec![0.0; 4096],
             pos: 0,
-            slow: 0.0,
-            fast: 0.0,
+            slow: crate::dsp::Turn::new(0.62, 48000.0),
+            fast: crate::dsp::Turn::new(5.7, 48000.0),
+            ready: false,
         }
     }
 
     #[inline]
     fn process(&mut self, x: f32, amount: f32, sr: f32) -> f32 {
-        let n = self.line.len();
+        if !self.ready {
+            self.slow = crate::dsp::Turn::new(0.62, sr);
+            self.fast = crate::dsp::Turn::new(5.7, sr);
+            self.ready = true;
+        }
+        let mask = self.line.len() - 1;
         self.line[self.pos] = x;
-        self.slow = (self.slow + 0.62 / sr).fract();
-        self.fast = (self.fast + 5.7 / sr).fract();
+        self.slow.next();
+        self.fast.next();
+        if amount <= 0.001 {
+            self.pos = (self.pos + 1) & mask;
+            return x;
+        }
+        // three taps a third of a turn apart: sin(a + 120°) from the sine and cosine
+        const C: f32 = -0.5;
+        const S: f32 = 0.866_025_4;
+        let (s1, c1, s2, c2) = (self.slow.sin, self.slow.cos, self.fast.sin, self.fast.cos);
+        let slow = [s1, s1 * C + c1 * S, s1 * C - c1 * S];
+        let fast = [s2, s2 * C + c2 * S, s2 * C - c2 * S];
         let mut wet = 0.0;
         for k in 0..3 {
-            let turn = k as f32 / 3.0;
-            let ms = 13.0
-                + 4.5 * (TAU * (self.slow + turn)).sin()
-                + 0.55 * (TAU * (self.fast + turn)).sin();
-            let read = self.pos as f32 + n as f32 - ms * 0.001 * sr;
-            let i = read as usize;
-            let frac = read - i as f32;
-            let a = self.line[i % n];
-            let b = self.line[(i + 1) % n];
+            let d = (13.0 + 4.5 * slow[k] + 0.55 * fast[k]) * 0.001 * sr;
+            let i = d as usize;
+            let frac = d - i as f32;
+            let a = self.line[self.pos.wrapping_sub(i) & mask];
+            let b = self.line[self.pos.wrapping_sub(i + 1) & mask];
             wet += a + (b - a) * frac;
         }
-        self.pos = (self.pos + 1) % n;
+        self.pos = (self.pos + 1) & mask;
         x * (1.0 - 0.45 * amount) + wet * amount * 0.42
     }
 }
@@ -1113,11 +1123,7 @@ impl MacroSynth {
             for (o, x) in block.iter_mut().zip(mix.iter()) {
                 // a stray NaN must never reach the mix
                 let x = if x.is_finite() { *x } else { 0.0 };
-                *o += if patch.chorus > 0.001 {
-                    self.ensemble.process(x, patch.chorus, sr)
-                } else {
-                    self.ensemble.process(x, 0.0, sr)
-                };
+                *o += self.ensemble.process(x, patch.chorus, sr);
             }
         }
     }

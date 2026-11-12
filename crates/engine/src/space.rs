@@ -4,18 +4,22 @@
 
 use std::f32::consts::TAU;
 
-use crate::dsp::Svf;
+use crate::dsp::{Svf, Turn};
 
-/// A delay line read at fixed or moving taps.
+/// A delay line read at fixed or moving taps. Its length is a power of two,
+/// so finding a tap is a mask, not a division.
 struct Line {
     buf: Vec<f32>,
+    mask: usize,
     pos: usize,
 }
 
 impl Line {
     fn new(len: usize) -> Self {
+        let n = len.max(4).next_power_of_two();
         Line {
-            buf: vec![0.0; len.max(4)],
+            buf: vec![0.0; n],
+            mask: n - 1,
             pos: 0,
         }
     }
@@ -23,27 +27,21 @@ impl Line {
     #[inline]
     fn write(&mut self, x: f32) {
         self.buf[self.pos] = x;
-        self.pos += 1;
-        if self.pos == self.buf.len() {
-            self.pos = 0;
-        }
+        self.pos = (self.pos + 1) & self.mask;
     }
 
     /// The sample written `delay` samples ago (1 = the last one written).
     #[inline]
     fn tap(&self, delay: usize) -> f32 {
-        let n = self.buf.len();
-        self.buf[(self.pos + n - delay.clamp(1, n - 1)) % n]
+        self.buf[self.pos.wrapping_sub(delay) & self.mask]
     }
 
     #[inline]
     fn tap_frac(&self, delay: f32) -> f32 {
-        let n = self.buf.len();
-        let d = delay.clamp(1.0, (n - 2) as f32);
-        let i = d as usize;
-        let f = d - i as f32;
-        let a = self.buf[(self.pos + n - i) % n];
-        let b = self.buf[(self.pos + n - i - 1) % n];
+        let i = delay as usize;
+        let f = delay - i as f32;
+        let a = self.buf[self.pos.wrapping_sub(i) & self.mask];
+        let b = self.buf[self.pos.wrapping_sub(i + 1) & self.mask];
         a + (b - a) * f
     }
 }
@@ -69,10 +67,11 @@ pub struct Plate {
     d2: [Line; 2],
     d2_len: [usize; 2],
     cross: [f32; 2],
-    lfo: f32,
-    lfo_inc: f32,
+    lfo: Turn,
     excursion: f32,
-    scale: f32,
+    /// Where the left and the right output read the tank, in samples.
+    taps_l: [usize; 7],
+    taps_r: [usize; 7],
     /// 0..1: how long the tail lasts.
     pub decay: f32,
     /// 0..1: how fast the top of the tail dies.
@@ -103,10 +102,12 @@ impl Plate {
             d2: [line(3720.0), line(3163.0)],
             d2_len: [n(3720.0), n(3163.0)],
             cross: [0.0; 2],
-            lfo: 0.0,
-            lfo_inc: 0.8 / sr,
+            lfo: Turn::new(0.8, sr),
             excursion: 14.0 * k,
-            scale: k,
+            taps_l: [266.0, 2974.0, 1913.0, 1996.0, 1990.0, 187.0, 1066.0]
+                .map(|x: f32| ((x * k) as usize).max(1)),
+            taps_r: [353.0, 3627.0, 1228.0, 2673.0, 2111.0, 335.0, 121.0]
+                .map(|x: f32| ((x * k) as usize).max(1)),
             decay: 0.86,
             damping: 0.5,
             frozen: false,
@@ -136,11 +137,8 @@ impl Plate {
             self.diff[i].write(w);
             v = d + g * w;
         }
-        self.lfo += self.lfo_inc;
-        if self.lfo >= 1.0 {
-            self.lfo -= 1.0;
-        }
-        let wander = [(TAU * self.lfo).sin(), (TAU * self.lfo).cos()];
+        self.lfo.next();
+        let wander = [self.lfo.sin, self.lfo.cos];
         let mut out_half = [0.0f32; 2];
         for h in 0..2 {
             let x = v + decay * self.cross[1 - h];
@@ -161,19 +159,18 @@ impl Plate {
             out_half[h] = self.d2[h].tap(self.d2_len[h]);
         }
         self.cross = out_half;
-        let s = self.scale;
-        let t = |x: f32| ((x * s) as usize).max(1);
         // the output taps of the paper, left and right
-        let l = self.d1[1].tap(t(266.0)) + self.d1[1].tap(t(2974.0)) - self.ap2[1].tap(t(1913.0))
-            + self.d2[1].tap(t(1996.0))
-            - self.d1[0].tap(t(1990.0))
-            - self.ap2[0].tap(t(187.0))
-            - self.d2[0].tap(t(1066.0));
-        let r = self.d1[0].tap(t(353.0)) + self.d1[0].tap(t(3627.0)) - self.ap2[0].tap(t(1228.0))
-            + self.d2[0].tap(t(2673.0))
-            - self.d1[1].tap(t(2111.0))
-            - self.ap2[1].tap(t(335.0))
-            - self.d2[1].tap(t(121.0));
+        let (tl, tr) = (&self.taps_l, &self.taps_r);
+        let l = self.d1[1].tap(tl[0]) + self.d1[1].tap(tl[1]) - self.ap2[1].tap(tl[2])
+            + self.d2[1].tap(tl[3])
+            - self.d1[0].tap(tl[4])
+            - self.ap2[0].tap(tl[5])
+            - self.d2[0].tap(tl[6]);
+        let r = self.d1[0].tap(tr[0]) + self.d1[0].tap(tr[1]) - self.ap2[0].tap(tr[2])
+            + self.d2[0].tap(tr[3])
+            - self.d1[1].tap(tr[4])
+            - self.ap2[1].tap(tr[5])
+            - self.d2[1].tap(tr[6]);
         (l * 0.45, r * 0.45)
     }
 }
@@ -185,8 +182,7 @@ pub struct Echo {
     time: f32,
     lp: [f32; 2],
     hp: [f32; 2],
-    wobble: f32,
-    sr: f32,
+    wobble: Turn,
     pub feedback: f32,
 }
 
@@ -200,8 +196,7 @@ impl Echo {
             time: 0.3 * sr,
             lp: [0.0; 2],
             hp: [0.0; 2],
-            wobble: 0.0,
-            sr,
+            wobble: Turn::new(0.43, sr),
             feedback: 0.45,
         }
     }
@@ -211,8 +206,8 @@ impl Echo {
     pub fn process(&mut self, input: f32, samples: f32) -> (f32, f32) {
         // the motor takes a moment to reach a new speed, so the pitch slides
         self.time += (samples - self.time) * 0.00012;
-        self.wobble = (self.wobble + 0.43 / self.sr).fract();
-        let d = self.time * (1.0 + 0.0014 * (TAU * self.wobble).sin());
+        self.wobble.next();
+        let d = (self.time * (1.0 + 0.0014 * self.wobble.sin)).max(1.0);
         let mut out = [0.0f32; 2];
         for h in 0..2 {
             let y = self.lines[h].tap_frac(d);
@@ -492,8 +487,13 @@ impl Punch {
         } else {
             10.0
         };
-        self.lp_cut *= (lp_target / self.lp_cut).powf(0.00035);
-        self.hp_cut *= (hp_target / self.hp_cut).powf(0.00035);
+        // a glide in pitch, worked out only while a filter is on its way
+        if (self.lp_cut - lp_target).abs() > 1.0 {
+            self.lp_cut *= (lp_target / self.lp_cut).powf(0.00035);
+        }
+        if (self.hp_cut - hp_target).abs() > 0.05 {
+            self.hp_cut *= (hp_target / self.hp_cut).powf(0.00035);
+        }
         self.tick = self.tick.wrapping_add(1);
         if self.tick % 16 == 0 {
             let top = self.sr * 0.45;

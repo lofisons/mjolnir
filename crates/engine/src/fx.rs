@@ -2,7 +2,7 @@
 //! filter (cutoff + resonance) -> distortion -> saturation -> volume, with
 //! two sends: to the echo and to the reverb the whole mix shares.
 
-use crate::dsp::{Noise, Smoother, Svf};
+use crate::dsp::{soft, Noise, Smoother, Svf, Turn};
 use crate::model::{MacroParam, Macros, Master};
 
 pub struct FxChain {
@@ -75,7 +75,7 @@ impl FxChain {
             let sat = m[MacroParam::Saturation.index()];
             if sat > 0.001 {
                 let g = 1.0 + sat * 5.0;
-                x = (x * g).tanh() / g.sqrt();
+                x = soft(x * g) / g.sqrt();
             }
 
             let vol = m[MacroParam::Volume.index()];
@@ -105,8 +105,13 @@ pub struct MasterBus {
     tape_l: Vec<f32>,
     tape_r: Vec<f32>,
     tape_idx: usize,
-    wow_phase: f32,
-    flutter_phase: f32,
+    wow: Turn,
+    flutter: Turn,
+    // warmth: what the knob works out to, kept until the knob moves
+    warm_at: f32,
+    warm_a: f32,
+    warm_g: f32,
+    warm_norm: f32,
     // warmth: one-pole low-pass per channel
     lp_l: f32,
     lp_r: f32,
@@ -135,8 +140,12 @@ impl MasterBus {
             tape_l: vec![0.0; TAPE_BUF],
             tape_r: vec![0.0; TAPE_BUF],
             tape_idx: 0,
-            wow_phase: 0.0,
-            flutter_phase: 0.0,
+            wow: Turn::new(0.55, sr),
+            flutter: Turn::new(6.3, sr),
+            warm_at: -1.0,
+            warm_a: 1.0,
+            warm_g: 1.0,
+            warm_norm: 1.0,
             lp_l: 0.0,
             lp_r: 0.0,
             noise: Noise::new(4242),
@@ -162,13 +171,9 @@ impl MasterBus {
         self.tape_l[self.tape_idx] = l;
         self.tape_r[self.tape_idx] = r;
         if tape > 0.001 {
-            let two_pi = std::f32::consts::TAU;
-            self.wow_phase = (self.wow_phase + 0.55 / self.sr) % 1.0;
-            self.flutter_phase = (self.flutter_phase + 6.3 / self.sr) % 1.0;
-            let ms = 6.0
-                + tape
-                    * (2.2 * (two_pi * self.wow_phase).sin()
-                        + 0.25 * (two_pi * self.flutter_phase).sin());
+            self.wow.next();
+            self.flutter.next();
+            let ms = 6.0 + tape * (2.2 * self.wow.sin + 0.25 * self.flutter.sin);
             let d = (ms * 0.001 * self.sr).clamp(1.0, (TAPE_BUF - 2) as f32);
             let pos = self.tape_idx as f32 + TAPE_BUF as f32 - d;
             let i = pos as usize;
@@ -186,13 +191,17 @@ impl MasterBus {
 
         // Warmth: low-pass sweeping from ~18 kHz down to ~2.2 kHz plus soft drive.
         if warmth > 0.001 {
-            let cutoff = 18000.0 * (2200.0f32 / 18000.0).powf(warmth);
-            let a = 1.0 - (-std::f32::consts::TAU * cutoff / self.sr).exp();
-            self.lp_l += a * (l - self.lp_l);
-            self.lp_r += a * (r - self.lp_r);
-            let g = 1.0 + warmth * 1.5;
-            l = (self.lp_l * g).tanh() / g.tanh();
-            r = (self.lp_r * g).tanh() / g.tanh();
+            if (warmth - self.warm_at).abs() > 0.0005 {
+                self.warm_at = warmth;
+                let cutoff = 18000.0 * (2200.0f32 / 18000.0).powf(warmth);
+                self.warm_a = 1.0 - (-std::f32::consts::TAU * cutoff / self.sr).exp();
+                self.warm_g = 1.0 + warmth * 1.5;
+                self.warm_norm = 1.0 / soft(self.warm_g);
+            }
+            self.lp_l += self.warm_a * (l - self.lp_l);
+            self.lp_r += self.warm_a * (r - self.lp_r);
+            l = soft(self.lp_l * self.warm_g) * self.warm_norm;
+            r = soft(self.lp_r * self.warm_g) * self.warm_norm;
         } else {
             self.lp_l = l;
             self.lp_r = r;
@@ -222,6 +231,6 @@ impl MasterBus {
             peak + (self.env - peak) * self.release
         };
         let lim = if self.env > 0.9 { 0.9 / self.env } else { 1.0 };
-        ((l * lim).tanh(), (r * lim).tanh())
+        (soft(l * lim), soft(r * lim))
     }
 }

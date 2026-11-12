@@ -219,6 +219,12 @@ impl Granular {
     }
 
     pub fn render(&mut self, out: &mut [f32]) {
+        // nothing held and nothing still ringing: nothing to do
+        if !self.streams.iter().any(|s| s.env.is_active()) && !self.grains.iter().any(|g| g.active)
+        {
+            return;
+        }
+        let sine = crate::dsp::sine_table();
         let p = self.params;
         let interval = self.sr / p.density;
         let scan = p.scan as f64 * self.source.sample_rate as f64 / self.sr as f64;
@@ -244,14 +250,18 @@ impl Granular {
             let frames = &self.source.frames;
             let mut acc = 0.0;
             for g in self.grains.iter_mut().filter(|g| g.active) {
-                let t = g.age as f32 / g.len as f32;
-                let w = (std::f32::consts::PI * t).sin();
+                // half a turn of a sine, squared: the grain's window
+                let w = crate::dsp::sin_turns(sine, 0.5 * g.age as f32 / g.len as f32);
                 let i = g.pos as usize;
                 let frac = (g.pos - i as f64) as f32;
-                let a = frames[i % frames.len()];
-                let b = frames[(i + 1) % frames.len()];
+                let last = frames.len() - 1;
+                let a = frames[i.min(last)];
+                let b = frames[if i < last { i + 1 } else { 0 }];
                 acc += (a + (b - a) * frac) * w * w * g.amp;
-                g.pos = (g.pos + g.rate) % len_src;
+                g.pos += g.rate;
+                if g.pos >= len_src {
+                    g.pos -= len_src;
+                }
                 g.age += 1;
                 if g.age >= g.len {
                     g.active = false;

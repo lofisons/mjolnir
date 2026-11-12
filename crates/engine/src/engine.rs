@@ -491,6 +491,8 @@ impl Engine {
     }
 
     pub fn new(sample_rate: f32) -> (Engine, EngineEndpoints) {
+        // tables the audio thread reads are built here, never in the callback
+        let _ = crate::dsp::sine_table();
         let (cmd_tx, cmd_rx) = rtrb::RingBuffer::new(4096);
         let (ev_tx, ev_rx) = rtrb::RingBuffer::new(4096);
         let (gb_tx, gb_rx) = rtrb::RingBuffer::new(1024);

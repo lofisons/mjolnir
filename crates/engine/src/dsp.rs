@@ -269,6 +269,77 @@ impl Smoother {
     }
 }
 
+/// A soft clipper shaped like tanh at a fraction of its cost: exact at 0,
+/// within a few thousandths up to 2, flat at one from 3 on.
+#[inline]
+pub fn soft(x: f32) -> f32 {
+    if x <= -3.0 {
+        -1.0
+    } else if x >= 3.0 {
+        1.0
+    } else {
+        x * (27.0 + x * x) / (27.0 + 9.0 * x * x)
+    }
+}
+
+const SINE_SIZE: usize = 2048;
+
+/// One cycle of a sine, for oscillators that would otherwise call `sin`
+/// for every sample.
+pub fn sine_table() -> &'static [f32; SINE_SIZE + 1] {
+    static CELL: std::sync::OnceLock<Box<[f32; SINE_SIZE + 1]>> = std::sync::OnceLock::new();
+    CELL.get_or_init(|| {
+        let mut t = Box::new([0.0f32; SINE_SIZE + 1]);
+        for (i, v) in t.iter_mut().enumerate() {
+            *v = (std::f32::consts::TAU * i as f32 / SINE_SIZE as f32).sin();
+        }
+        t
+    })
+}
+
+/// The sine of `turns` of a circle (1.0 = once round), read from the table.
+#[inline]
+pub fn sin_turns(table: &[f32; SINE_SIZE + 1], turns: f32) -> f32 {
+    let x = (turns - turns.floor()) * SINE_SIZE as f32;
+    let i = x as usize;
+    let f = x - i as f32;
+    // i is below SINE_SIZE + 1 because x is below SINE_SIZE
+    let a = table[i.min(SINE_SIZE - 1)];
+    let b = table[i.min(SINE_SIZE - 1) + 1];
+    a + (b - a) * f
+}
+
+/// A slow sine and cosine without calling either: a point turning on a circle.
+#[derive(Clone, Copy)]
+pub struct Turn {
+    pub sin: f32,
+    pub cos: f32,
+    step_sin: f32,
+    step_cos: f32,
+}
+
+impl Turn {
+    pub fn new(hz: f32, sr: f32) -> Self {
+        let w = std::f32::consts::TAU * hz / sr;
+        Turn {
+            sin: 0.0,
+            cos: 1.0,
+            step_sin: w.sin(),
+            step_cos: w.cos(),
+        }
+    }
+
+    #[inline]
+    pub fn next(&mut self) {
+        let s = self.sin * self.step_cos + self.cos * self.step_sin;
+        let c = self.cos * self.step_cos - self.sin * self.step_sin;
+        // pull the point back onto the circle, so rounding never lets it drift
+        let k = 1.5 - 0.5 * (s * s + c * c);
+        self.sin = s * k;
+        self.cos = c * k;
+    }
+}
+
 pub fn midi_to_hz(pitch: f32) -> f32 {
     440.0 * 2f32.powf((pitch - 69.0) / 12.0)
 }
