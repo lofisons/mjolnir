@@ -1,15 +1,14 @@
 //! Per-track effect chain driven by the macro knobs:
-//! filter (cutoff + resonance) -> distortion -> saturation -> delay -> reverb -> volume.
+//! filter (cutoff + resonance) -> distortion -> saturation -> volume, with
+//! two sends: to the echo and to the reverb the whole mix shares.
 
-use crate::dsp::{Noise, PingPong, Reverb, Smoother, Svf};
+use crate::dsp::{Noise, Smoother, Svf};
 use crate::model::{MacroParam, Macros, Master};
 
 pub struct FxChain {
     sr: f32,
     filter: Svf,
     smooth: [Smoother; 7],
-    delay: PingPong,
-    reverb: Reverb,
     counter: u32,
     // DC blocker state
     dc_x: f32,
@@ -27,25 +26,23 @@ impl FxChain {
             sr,
             filter: Svf::default(),
             smooth: std::array::from_fn(|i| Smoother::new(macros.0[i], 0.02, sr)),
-            delay: PingPong::new(sr, 2.0),
-            reverb: Reverb::new(sr),
             counter: 0,
             dc_x: 0.0,
             dc_y: 0.0,
         }
     }
 
-    /// Process mono `input` into stereo `left`/`right` (overwritten).
-    /// `beat_seconds` is the duration of a quarter note, used for delay sync.
+    /// Process mono `input` into stereo `left`/`right` and into what the
+    /// track sends to the shared reverb and echo (all overwritten).
     pub fn process(
         &mut self,
         input: &[f32],
         left: &mut [f32],
         right: &mut [f32],
+        to_reverb: &mut [f32],
+        to_echo: &mut [f32],
         macros: &Macros,
-        beat_seconds: f32,
     ) {
-        let delay_samples = (beat_seconds * 0.75 * self.sr) as usize; // dotted 1/8
         for i in 0..input.len() {
             let m: [f32; 7] = std::array::from_fn(|k| self.smooth[k].next(macros.0[k]));
             let cutoff = m[MacroParam::Cutoff.index()];
@@ -81,30 +78,17 @@ impl FxChain {
                 x = (x * g).tanh() / g.sqrt();
             }
 
-            let mut l = x;
-            let mut r = x;
-
-            let dmix = m[MacroParam::Delay.index()];
-            if dmix > 0.001 {
-                let (dl, dr) = self.delay.process(x, delay_samples, 0.35 + 0.3 * dmix);
-                l += dl * dmix;
-                r += dr * dmix;
-            } else {
-                // keep the line flowing so tails decay naturally when turned down
-                let _ = self.delay.process(0.0, delay_samples, 0.0);
-            }
-
-            let rmix = m[MacroParam::Reverb.index()];
-            if rmix > 0.001 {
-                let (rl, rr) = self.reverb.process(x);
-                l = l * (1.0 - 0.5 * rmix) + rl * rmix * 1.5;
-                r = r * (1.0 - 0.5 * rmix) + rr * rmix * 1.5;
-            }
-
             let vol = m[MacroParam::Volume.index()];
             let gain = vol * vol * 1.4;
-            left[i] = l * gain;
-            right[i] = r * gain;
+            let y = x * gain;
+            let rmix = m[MacroParam::Reverb.index()];
+            let dmix = m[MacroParam::Delay.index()];
+            // a sound deep in the room steps back a little
+            let dry = y * (1.0 - 0.3 * rmix);
+            left[i] = dry;
+            right[i] = dry;
+            to_reverb[i] = y * rmix * rmix * 1.6;
+            to_echo[i] = y * dmix * 0.9;
         }
     }
 }

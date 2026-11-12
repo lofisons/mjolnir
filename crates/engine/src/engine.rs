@@ -20,6 +20,8 @@ use crate::model::{
 
 /// Events are scheduled with this granularity (samples). ~0.33 ms at 48 kHz.
 const CHUNK: usize = 16;
+/// Most strikes a repeated note makes inside a sixteenth.
+const MAX_REPEAT: u8 = 4;
 const MAX_PENDING_OFFS: usize = 128;
 const MAX_SWING_TICKS: f64 = TICKS_PER_STEP as f64 * 0.5;
 /// Largest "laid-back" delay humanize adds (~1/12 of a beat).
@@ -38,6 +40,15 @@ fn hash01(a: u64, b: u64) -> f32 {
 pub type Garbage = Box<dyn Any + Send>;
 
 pub enum Command {
+    /// Hold or let go a punch effect over the whole mix.
+    Punch {
+        kind: crate::space::PunchKind,
+        on: bool,
+    },
+    SetMacroPatch {
+        track: usize,
+        patch: crate::macro_synth::MacroPatch,
+    },
     Play,
     /// Audible pre-roll in beats; transport and recording stay stopped until it ends.
     PlayWithCountIn(u32),
@@ -275,6 +286,8 @@ pub struct TrackRuntime {
     mono: Vec<f32>,
     left: Vec<f32>,
     right: Vec<f32>,
+    to_reverb: Vec<f32>,
+    to_echo: Vec<f32>,
     level: f32,
 }
 
@@ -313,6 +326,8 @@ impl TrackRuntime {
             mono: vec![0.0; CHUNK],
             left: vec![0.0; CHUNK],
             right: vec![0.0; CHUNK],
+            to_reverb: vec![0.0; CHUNK],
+            to_echo: vec![0.0; CHUNK],
             level: 0.0,
         }
     }
@@ -382,6 +397,10 @@ pub struct Engine {
     #[allow(clippy::vec_box)]
     tracks: Vec<Box<TrackRuntime>>,
     master: MasterBus,
+    space: crate::space::Space,
+    pump: crate::space::Pump,
+    pump_amount: f32,
+    punch: crate::space::Punch,
     commands: Consumer<Command>,
     events: Producer<EngineEvent>,
     garbage: Producer<Garbage>,
@@ -488,6 +507,10 @@ impl Engine {
             free_tick: 0.0,
             tracks: Vec::with_capacity(MAX_TRACKS),
             master: MasterBus::new(sample_rate),
+            space: crate::space::Space::new(sample_rate),
+            pump: crate::space::Pump::new(sample_rate),
+            pump_amount: 0.0,
+            punch: crate::space::Punch::new(sample_rate),
             commands: cmd_rx,
             events: ev_tx,
             garbage: gb_tx,
@@ -716,7 +739,27 @@ impl Engine {
                     t.pan = pan.clamp(-1.0, 1.0);
                 }
             }
-            Command::SetMaster(m) => self.master.set(m),
+            Command::SetMaster(m) => {
+                self.master.set(m);
+                self.space.set_size(m.space);
+                self.pump_amount = m.pump;
+            }
+            Command::Punch { kind, on } => {
+                use crate::space::PunchKind;
+                self.punch.set(kind, on);
+                match kind {
+                    PunchKind::Freeze => self.space.plate.freeze(on),
+                    PunchKind::Dub => self.space.echo.feedback = if on { 0.9 } else { 0.45 },
+                    _ => {}
+                }
+            }
+            Command::SetMacroPatch { track, patch } => {
+                if let Some(t) = self.tracks.get_mut(track) {
+                    if let crate::instruments::Instrument::Macro(m) = &mut *t.instrument {
+                        m.set_patch(patch);
+                    }
+                }
+            }
             Command::SetMetronome(on) => self.click.on = on,
             Command::SetHumanize { track, amount } => {
                 if let Some(t) = self.tracks.get_mut(track) {
@@ -821,8 +864,13 @@ impl Engine {
             }
             let mut chunk_l = [0.0f32; CHUNK];
             let mut chunk_r = [0.0f32; CHUNK];
-            let beat_seconds = 60.0 / self.bpm;
+            let mut send_reverb = [0.0f32; CHUNK];
+            let mut send_echo = [0.0f32; CHUNK];
+            let mut drums = [0.0f32; CHUNK];
+            let beat_samples = 60.0 / self.bpm * self.sr;
             let any_solo = self.tracks.iter().any(|t| t.solo);
+            // every track through its own chain; the drums are heard first,
+            // because the rest makes room for them
             for t in self.tracks.iter_mut() {
                 t.mono[..n].fill(0.0);
                 t.instrument.render(&mut t.mono[..n]);
@@ -831,6 +879,8 @@ impl Engine {
                     mono,
                     left,
                     right,
+                    to_reverb,
+                    to_echo,
                     effective,
                     ..
                 } = &mut **t;
@@ -838,23 +888,59 @@ impl Engine {
                     &mono[..n],
                     &mut left[..n],
                     &mut right[..n],
+                    &mut to_reverb[..n],
+                    &mut to_echo[..n],
                     effective,
-                    beat_seconds,
                 );
                 let mut tp = 0.0f32;
                 for i in 0..n {
                     tp = tp.max(t.left[i].abs()).max(t.right[i].abs());
                 }
                 t.level = t.level.max(tp);
-                if !t.mute && (!any_solo || t.solo) {
-                    // simple balance pan
-                    let gl = (1.0 - t.pan).min(1.0);
-                    let gr = (1.0 + t.pan).min(1.0);
+                if !t.mute && (!any_solo || t.solo) && t.instrument.is_kit() {
                     for i in 0..n {
-                        chunk_l[i] += t.left[i] * gl;
-                        chunk_r[i] += t.right[i] * gr;
+                        drums[i] += t.left[i];
                     }
                 }
+            }
+            let mut duck = [1.0f32; CHUNK];
+            if self.pump_amount > 0.001 {
+                for i in 0..n {
+                    duck[i] = self.pump.gain(drums[i], self.pump_amount);
+                }
+            }
+            for t in self.tracks.iter() {
+                if t.mute || (any_solo && !t.solo) {
+                    continue;
+                }
+                // simple balance pan
+                let gl = (1.0 - t.pan).min(1.0);
+                let gr = (1.0 + t.pan).min(1.0);
+                let kit = t.instrument.is_kit();
+                for i in 0..n {
+                    let g = if kit { 1.0 } else { duck[i] };
+                    chunk_l[i] += t.left[i] * gl * g;
+                    chunk_r[i] += t.right[i] * gr * g;
+                    send_reverb[i] += t.to_reverb[i] * g;
+                    send_echo[i] += t.to_echo[i] * g;
+                }
+            }
+            // the punch effects, then the room every track sends to
+            let dub = self.punch.held(crate::space::PunchKind::Dub);
+            for i in 0..n {
+                // at rest the punch only remembers the mix, for the next loop or tape stop
+                let (l, r) = self.punch.process(chunk_l[i], chunk_r[i], beat_samples);
+                chunk_l[i] = l;
+                chunk_r[i] = r;
+                let mut echo_in = send_echo[i];
+                if dub {
+                    echo_in += (chunk_l[i] + chunk_r[i]) * 0.5;
+                }
+                let (wl, wr) = self
+                    .space
+                    .process(send_reverb[i], echo_in, beat_samples * 0.75);
+                chunk_l[i] += wl;
+                chunk_r[i] += wr;
             }
             for i in 0..n {
                 let g = fade_from + (fade_to - fade_from) * (i as f32 / n as f32);
@@ -1052,7 +1138,8 @@ impl Engine {
                         fire: &mut [(u8, f32, f64); 32],
                         nfire: &mut usize| {
                 let first = pattern.notes.partition_point(|n| {
-                    (n.start as f64) < from - MAX_SWING_TICKS - MAX_HUMAN_TICKS
+                    (n.start as f64)
+                        < from - MAX_SWING_TICKS - MAX_HUMAN_TICKS - TICKS_PER_STEP as f64
                 });
                 for note in &pattern.notes[first..] {
                     if note.start as f64 >= to {
@@ -1075,14 +1162,29 @@ impl Engine {
                         let dv = hash01(key ^ 0xABCD, cycle) - 0.5;
                         vel = (vel * (1.0 + dv * 0.45 * human as f32)).clamp(0.05, 1.0);
                     }
-                    let s = note.start as f64 + sw + lag;
-                    if s >= from && s < to && *nfire < fire.len() {
-                        fire[*nfire] = (
-                            note.pitch,
-                            vel,
-                            loop_start + offset + s + note.length as f64,
-                        );
-                        *nfire += 1;
+                    let cycle = ((loop_start + offset - origin) / len).round().max(0.0) as u64;
+                    let key = ((note.start as u64) << 8) | note.pitch as u64;
+                    // chance: the same answer for the same note in the same pass
+                    // of the loop, so a bounce matches what was heard
+                    if note.chance < 100
+                        && hash01(key ^ 0xC4A2CE, cycle) * 100.0 >= note.chance as f32
+                    {
+                        continue;
+                    }
+                    // repeat: the note strikes several times inside its first sixteenth
+                    let strikes = note.repeat.clamp(1, MAX_REPEAT) as u32;
+                    let span = (note.length.min(TICKS_PER_STEP) as f64) / strikes as f64;
+                    for k in 0..strikes {
+                        let s = note.start as f64 + sw + lag + k as f64 * span;
+                        if s >= from && s < to && *nfire < fire.len() {
+                            let end = if strikes > 1 {
+                                s + span * 0.9
+                            } else {
+                                s + note.length as f64
+                            };
+                            fire[*nfire] = (note.pitch, vel, loop_start + offset + end);
+                            *nfire += 1;
+                        }
                     }
                 }
             };
@@ -1133,6 +1235,7 @@ mod tests {
                 length: 24,
                 pitch: DRUM_BASE_NOTE,
                 velocity: 1.0,
+                ..Default::default()
             },
             TICKS_PER_BAR,
         );
@@ -1171,6 +1274,7 @@ mod tests {
                 length: 24,
                 pitch: DRUM_BASE_NOTE,
                 velocity: 1.0,
+                ..Default::default()
             },
             TICKS_PER_BAR,
         );
@@ -1216,6 +1320,7 @@ mod tests {
                     length: 12,
                     pitch: 60,
                     velocity: 1.0,
+                    ..Default::default()
                 },
                 TICKS_PER_BAR,
             );

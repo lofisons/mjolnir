@@ -543,6 +543,8 @@ impl Controller {
             vinyl: clamp(master.vinyl),
             tape: clamp(master.tape),
             warmth: clamp(master.warmth),
+            space: clamp(master.space),
+            pump: clamp(master.pump),
         };
         let m = self.project.master;
         self.send(Command::SetMaster(m));
@@ -616,7 +618,9 @@ impl Controller {
     pub fn design_sound(&mut self, track: usize) -> Result<(), String> {
         self.check_track(track)?;
         let spec = match &self.project.tracks[track].instrument {
-            InstrumentSpec::CustomSynth { .. } | InstrumentSpec::CustomKit { .. } => return Ok(()),
+            InstrumentSpec::CustomSynth { .. }
+            | InstrumentSpec::CustomKit { .. }
+            | InstrumentSpec::Macro { .. } => return Ok(()),
             InstrumentSpec::Synth { preset } => InstrumentSpec::CustomSynth {
                 name: format!("My {}", preset.label().to_lowercase()),
                 patch: crate::instruments::patch_for(*preset),
@@ -656,6 +660,13 @@ impl Controller {
             InstrumentSpec::CustomSynth { patch, .. } => {
                 patch.set(key, value)?;
                 Command::SetSynthPatch {
+                    track,
+                    patch: *patch,
+                }
+            }
+            InstrumentSpec::Macro { patch, .. } => {
+                patch.set(key, value)?;
+                Command::SetMacroPatch {
                     track,
                     patch: *patch,
                 }
@@ -1104,6 +1115,11 @@ impl Controller {
             });
         }
         Ok(())
+    }
+
+    /// Hold or let go one of the punch effects played over the whole mix.
+    pub fn punch(&mut self, kind: crate::space::PunchKind, on: bool) {
+        self.send(Command::Punch { kind, on });
     }
 
     pub fn stop_all_clips(&mut self) {
@@ -1793,6 +1809,7 @@ impl Controller {
                         length,
                         pitch,
                         velocity: 0.8,
+                        ..Default::default()
                     },
                     bar,
                 );
@@ -1937,6 +1954,7 @@ impl Controller {
                     length,
                     pitch,
                     velocity: note_velocity,
+                    ..Default::default()
                 },
                 bar,
             );
@@ -2191,6 +2209,7 @@ mod tests {
                 length: 24,
                 pitch: 48,
                 velocity: 0.7,
+                ..Default::default()
             },
         )
         .unwrap();
@@ -2351,6 +2370,7 @@ mod tests {
                 length: 24,
                 pitch: 72,
                 velocity: 1.0,
+                ..Default::default()
             },
         )
         .unwrap(); // C5 = b3 in A minor
@@ -2752,6 +2772,7 @@ mod tests {
             vinyl: 1.0,
             tape: 1.0,
             warmth: 1.0,
+            ..Master::default()
         });
         c.launch_scene(1).unwrap();
         c.play();
@@ -2780,6 +2801,7 @@ mod tests {
             length: 48,
             pitch,
             velocity,
+            ..Default::default()
         };
         c.add_note(t, 0, n(0, 60, 0.8)).unwrap();
         c.add_note(t, 0, n(0, 64, 0.8)).unwrap();
@@ -2794,7 +2816,8 @@ mod tests {
                     start: 24,
                     length: 96,
                     pitch: 66,
-                    velocity: 0.8
+                    velocity: 0.8,
+                    ..Default::default()
                 }
             )
             .unwrap());

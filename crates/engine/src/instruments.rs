@@ -19,6 +19,7 @@ pub enum Instrument {
     Sampler(Sampler),
     Granular(crate::granular::Granular),
     Piano(crate::piano::FeltPiano),
+    Macro(crate::macro_synth::MacroSynth),
 }
 
 impl Instrument {
@@ -63,6 +64,9 @@ impl Instrument {
             InstrumentSpec::CustomKit { pads, .. } => {
                 Instrument::Drums(DrumKit::designed(pads, sr))
             }
+            InstrumentSpec::Macro { patch, .. } => {
+                Instrument::Macro(crate::macro_synth::MacroSynth::new(*patch, sr))
+            }
             InstrumentSpec::SampleMelodic { root, .. } => {
                 Instrument::Sampler(Sampler::melodic(sample.unwrap_or_else(empty), *root, sr))
             }
@@ -94,6 +98,7 @@ impl Instrument {
             Instrument::Sampler(s) => s.note_on(pitch, velocity),
             Instrument::Granular(g) => g.note_on(pitch, velocity),
             Instrument::Piano(p) => p.note_on(pitch, velocity),
+            Instrument::Macro(m) => m.note_on(pitch, velocity),
         }
     }
 
@@ -104,6 +109,7 @@ impl Instrument {
             Instrument::Sampler(s) => s.note_off(pitch),
             Instrument::Granular(g) => g.note_off(pitch),
             Instrument::Piano(p) => p.note_off(pitch),
+            Instrument::Macro(m) => m.note_off(pitch),
         }
     }
 
@@ -114,6 +120,7 @@ impl Instrument {
             Instrument::Sampler(s) => s.voices.iter_mut().for_each(|v| v.env.gate_off()),
             Instrument::Granular(g) => g.all_notes_off(),
             Instrument::Piano(p) => p.all_notes_off(),
+            Instrument::Macro(m) => m.all_notes_off(),
         }
     }
 
@@ -126,6 +133,16 @@ impl Instrument {
             Instrument::Sampler(s) => s.parts = *gains,
             Instrument::Granular(_) => {}
             Instrument::Piano(p) => p.set_part_gains(gains[0], gains[1]),
+            Instrument::Macro(_) => {}
+        }
+    }
+
+    /// A kit of one-shot pads (drums, slices) rather than a pitched instrument.
+    pub fn is_kit(&self) -> bool {
+        match self {
+            Instrument::Drums(_) => true,
+            Instrument::Sampler(s) => s.slices.is_some(),
+            _ => false,
         }
     }
 
@@ -137,6 +154,7 @@ impl Instrument {
             Instrument::Sampler(s) => s.render(out),
             Instrument::Granular(g) => g.render(out),
             Instrument::Piano(p) => p.render(out),
+            Instrument::Macro(m) => m.render(out),
         }
     }
 }
@@ -380,6 +398,7 @@ pub fn part_names(spec: &InstrumentSpec) -> Vec<(usize, String)> {
         InstrumentSpec::Synth {
             preset: SynthPreset::Pluck,
         } => vec![(0, "Strings".into()), (1, "Finger".into())],
+        InstrumentSpec::Macro { .. } => Vec::new(),
         InstrumentSpec::CustomKit { names, .. } => (0..DRUM_PADS)
             .map(|i| {
                 (

@@ -119,6 +119,7 @@ impl CaptureBuffer {
                     length: l.min(len),
                     pitch,
                     velocity: vel,
+                    ..Default::default()
                 },
                 bar_ticks,
             );

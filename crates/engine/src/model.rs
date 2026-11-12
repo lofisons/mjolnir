@@ -96,6 +96,39 @@ pub struct Note {
     pub pitch: u8,
     /// 0..1
     pub velocity: f32,
+    /// How often the note sounds, in percent: 100 always, 50 one loop in two
+    /// on average. The choice is the same every time the song is rendered.
+    #[serde(default = "always", skip_serializing_if = "is_always")]
+    pub chance: u8,
+    /// How many times the note strikes inside its first sixteenth (1 = once).
+    #[serde(default = "once", skip_serializing_if = "is_once")]
+    pub repeat: u8,
+}
+
+fn always() -> u8 {
+    100
+}
+fn is_always(c: &u8) -> bool {
+    *c >= 100
+}
+fn once() -> u8 {
+    1
+}
+fn is_once(r: &u8) -> bool {
+    *r <= 1
+}
+
+impl Default for Note {
+    fn default() -> Self {
+        Note {
+            start: 0,
+            length: 0,
+            pitch: 60,
+            velocity: 0.8,
+            chance: 100,
+            repeat: 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -343,6 +376,7 @@ impl Pattern {
                     length,
                     pitch,
                     velocity,
+                    ..Default::default()
                 },
                 bar,
             );
@@ -777,6 +811,11 @@ pub enum InstrumentSpec {
         name: String,
         patch: crate::sound::SynthPatch,
     },
+    /// A sound of the macro synth: one of ten engines and its knobs.
+    Macro {
+        name: String,
+        patch: crate::macro_synth::MacroPatch,
+    },
     /// A kit of designed pads, each with its name.
     CustomKit {
         name: String,
@@ -867,9 +906,9 @@ impl InstrumentSpec {
                 sample: Some(id), ..
             } => format!("Granular #{id}"),
             InstrumentSpec::Granular { texture, .. } => texture.label().to_string(),
-            InstrumentSpec::CustomSynth { name, .. } | InstrumentSpec::CustomKit { name, .. } => {
-                name.clone()
-            }
+            InstrumentSpec::CustomSynth { name, .. }
+            | InstrumentSpec::CustomKit { name, .. }
+            | InstrumentSpec::Macro { name, .. } => name.clone(),
         }
     }
 }
@@ -1084,6 +1123,16 @@ pub struct Master {
     pub tape: f32,
     /// Low-pass warmth and gentle saturation.
     pub warmth: f32,
+    /// Size of the room every track sends its reverb to.
+    #[serde(default = "default_space")]
+    pub space: f32,
+    /// How much everything else makes room for the kick.
+    #[serde(default)]
+    pub pump: f32,
+}
+
+fn default_space() -> f32 {
+    0.6
 }
 
 impl Default for Master {
@@ -1093,6 +1142,8 @@ impl Default for Master {
             vinyl: 0.0,
             tape: 0.0,
             warmth: 0.0,
+            space: default_space(),
+            pump: 0.0,
         }
     }
 }
@@ -1146,6 +1197,8 @@ impl Project {
                 vinyl: 0.15,
                 tape: 0.3,
                 warmth: 0.45,
+                pump: 0.35,
+                ..Master::default()
             },
             ..Project::default()
         };
@@ -1197,6 +1250,7 @@ impl Project {
                 vinyl: 0.3,
                 tape: 0.35,
                 warmth: 0.45,
+                ..Master::default()
             },
             ..Project::default()
         };
@@ -1260,6 +1314,7 @@ impl Project {
             length: TICKS_PER_STEP,
             pitch,
             velocity,
+            ..Default::default()
         };
         let (kick, snare, hat, open_hat) = (
             DRUM_BASE_NOTE,
@@ -1307,6 +1362,7 @@ impl Project {
                         length: BAR - TICKS_PER_STEP * 3,
                         pitch,
                         velocity: 0.62 + 0.04 * k as f32,
+                        ..Default::default()
                     },
                     BAR,
                 );
@@ -1326,6 +1382,7 @@ impl Project {
                     length: TICKS_PER_STEP * 6,
                     pitch: root,
                     velocity: 0.9,
+                    ..Default::default()
                 },
                 BAR,
             );
@@ -1335,6 +1392,7 @@ impl Project {
                     length: TICKS_PER_STEP * 4,
                     pitch: root,
                     velocity: 0.7,
+                    ..Default::default()
                 },
                 BAR,
             );
@@ -1345,6 +1403,7 @@ impl Project {
                         length: TICKS_PER_STEP * 2,
                         pitch: root + 7,
                         velocity: 0.6,
+                        ..Default::default()
                     },
                     BAR,
                 );
@@ -1372,6 +1431,7 @@ impl Project {
                     length: TICKS_PER_STEP * 2,
                     pitch,
                     velocity: v,
+                    ..Default::default()
                 },
                 BAR,
             );
@@ -1678,6 +1738,7 @@ mod tests {
                 length: 24,
                 pitch: 36,
                 velocity: 1.0,
+                ..Default::default()
             },
             TICKS_PER_BAR,
         );
@@ -1707,6 +1768,7 @@ mod tests {
                     length: 6,
                     pitch: 39,
                     velocity: 0.5,
+                    ..Default::default()
                 },
                 TICKS_PER_BAR,
             );

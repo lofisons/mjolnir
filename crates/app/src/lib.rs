@@ -368,6 +368,11 @@ pub enum Action {
     OpenProject {
         json: String,
     },
+    /// Hold (`on`) or let go a punch effect over the whole mix.
+    Punch {
+        effect: String,
+        on: bool,
+    },
     /// A raw MIDI message from a controller.
     Midi {
         bytes: Vec<u8>,
@@ -417,6 +422,7 @@ impl Action {
                 | Action::Snapshot
                 | Action::OpenProject { .. }
                 | Action::Midi { .. }
+                | Action::Punch { .. }
         )
     }
 }
@@ -446,6 +452,11 @@ fn catalog() -> Value {
         "grooves": GrooveId::ALL.iter().map(|g| json!({ "id": g, "label": g.label(), "kind": g.kind() })).collect::<Vec<_>>(),
         "macros": MacroParam::ALL.iter().map(|k| json!({ "id": k, "label": k.label() })).collect::<Vec<_>>(),
         "meters": mjolnir_engine::model::Meter::COMMON,
+        "macro_sounds": mjolnir_engine::macro_synth::PRESETS.iter().map(|p| json!({
+            "id": p.id, "label": p.label, "category": p.category, "octave": p.octave, "patch": p.patch,
+        })).collect::<Vec<_>>(),
+        "macro_params": mjolnir_engine::macro_synth::MACRO_PARAMS,
+        "punch": mjolnir_engine::space::PunchKind::ALL.iter().map(|k| k.id()).collect::<Vec<_>>(),
         "synth_params": mjolnir_engine::sound::SYNTH_PARAMS,
         "drum_params": mjolnir_engine::sound::DRUM_PARAMS,
     })
@@ -512,6 +523,12 @@ impl App {
             }
             Action::Info => {
                 return Ok(json!({ "catalog": catalog(), "sample_rate": c.sample_rate() }))
+            }
+            Action::Punch { effect, on } => {
+                let kind =
+                    mjolnir_engine::space::PunchKind::from_id(&effect).ok_or("no such effect")?;
+                c.punch(kind, on);
+                return Ok(Value::Null);
             }
             Action::Midi { bytes } => {
                 c.midi_message(&bytes);

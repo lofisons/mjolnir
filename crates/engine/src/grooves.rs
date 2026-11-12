@@ -278,6 +278,7 @@ impl Beat {
             length: STEP,
             pitch,
             velocity,
+            ..Default::default()
         });
     }
 
@@ -290,6 +291,7 @@ impl Beat {
                 length: every,
                 pitch,
                 velocity: from + (to - from) * t,
+                ..Default::default()
             });
         }
     }
@@ -343,6 +345,7 @@ mod tests {
                 length: STEP,
                 pitch: KICK,
                 velocity: 1.0,
+                ..Default::default()
             },
             TICKS_PER_BAR,
         );
@@ -352,6 +355,7 @@ mod tests {
                 length: STEP,
                 pitch: HAT,
                 velocity: 1.0,
+                ..Default::default()
             },
             TICKS_PER_BAR,
         );

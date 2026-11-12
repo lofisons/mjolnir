@@ -121,6 +121,7 @@ fn audio_callback_never_allocates() {
         vinyl: 0.5,
         tape: 0.5,
         warmth: 0.5,
+        ..Master::default()
     });
     c.set_humanize(0, 1.0).unwrap();
     audio(&mut engine, &mut buf, 200);
