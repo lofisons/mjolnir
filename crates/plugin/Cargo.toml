@@ -1,0 +1,14 @@
+[package]
+name = "mjolnir-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Mjolnir as a VST 3 instrument"
+
+[lib]
+name = "mjolnir_vst3"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+mjolnir-engine = { path = "../engine" }
+vst3 = "0.3.0"

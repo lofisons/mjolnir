@@ -15,6 +15,7 @@ An open instrument for sketching beats and finishing them: pads, steps, a piano 
 | Windows | An installer, or a portable exe |
 | macOS | A disk image for Apple silicon, one for Intel |
 | Android | An APK |
+| A DAW | A VST 3 instrument for Windows, macOS and Linux: the sounds and the drum loops, played by the DAW |
 
 Every package is built by one script, on one Linux machine: see [INSTALL.md](INSTALL.md) for how to install each and how to build them yourself.
 
@@ -44,7 +45,9 @@ The manual is in [guide/GUIDE.md](guide/GUIDE.md).
 | `desktop` | The desktop shell (Electron) around the same web app. |
 | `android` | The Android shell (a WebView), built by hand with no Android Studio. |
 | `tools` | The scripts that build the sounds, the demos and the icon. |
-| `docs` | The built web app, ready to be served as a static site. |
+| `crates/plugin` | The sounds as a VST 3 instrument: one track of the engine, played by a host's notes. |
+| `site` | The front page of the public site. |
+| `docs` | The built site, ready for any static host: the front page, and the web app under `app/`. |
 
 One engine and one interface run everywhere; a host only lends sound out and files. More in [guide/ARCHITECTURE.md](guide/ARCHITECTURE.md).
 

@@ -22,9 +22,10 @@
 |---|---|---|
 | Browser, installed web app | WebAssembly in an AudioWorklet; a second instance in a worker bounces audio | downloads, a file picker, IndexedDB for sets, Web MIDI |
 | Desktop (`desktop/`) | the same, inside Electron's Chromium, served from its own `app://` scheme | a menu, file association, save dialogs |
+| A DAW (`crates/plugin`) | natively: the engine on the DAW's audio thread, a helper thread for everything that allocates | notes, tempo, transport, parameters and their automation, state |
 | Android (`android/`) | the same, inside a WebView, served from the package at `https://mjolnir.app` | saving to Downloads, opening `.mjolnir` files, the microphone, the back button |
 
-Because every host runs the same module in a Chromium (or WebKit) audio worklet, what is tested in one is what sounds in the others.
+Because every app host runs the same module in a Chromium (or WebKit) audio worklet, what is tested in one is what sounds in the others. The plugin is the exception: the same engine compiled natively, with one track and no interface of its own.
 
 ## Sound
 

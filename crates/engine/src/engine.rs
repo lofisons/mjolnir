@@ -844,6 +844,21 @@ impl Engine {
         }
     }
 
+    /// Apply one command at once, from the audio thread itself: for a host
+    /// (a plugin) that hands notes and transport to the audio callback.
+    pub fn handle_now(&mut self, cmd: Command) {
+        self.handle(cmd);
+    }
+
+    /// Put the session's clock where a host's song is, in ticks, so loops
+    /// fall on the host's bars.
+    pub fn follow_host(&mut self, tick: f64) {
+        self.song_tick = tick.max(0.0);
+        for t in self.tracks.iter_mut() {
+            t.origin = 0.0;
+        }
+    }
+
     /// Render interleaved audio with `channels` channels (1 or more).
     pub fn process(&mut self, out: &mut [f32], channels: usize) {
         while let Ok(cmd) = self.commands.pop() {

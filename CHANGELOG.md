@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
+
+- A VST 3 instrument for Windows, macOS and Linux: the 45 sounds, the seven knobs, tape, vinyl and warmth, and the ready-made drum loops in time with the host's song.
+- A public site (`site/`, built into `docs/`): a front page with the instrument playing inside it, and the web app under `app/`.
 
 - The piano roll writes a note only on a tap: a finger that scrolls the sheet, up, down or sideways, leaves it untouched.
 - A loop told to stop shows it (a red light, dimmed notes) while it plays out its bar; a second touch stops it at once instead of starting it again.

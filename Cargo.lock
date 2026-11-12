@@ -104,6 +104,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "com-scrape-types"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ce183b975b8fc736a20919c4002717255fbd867df575c792aeefa9a56a73ad0"
+
+[[package]]
 name = "combine"
 version = "4.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -467,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "mjolnir-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64",
  "mjolnir-engine",
@@ -477,7 +483,7 @@ dependencies = [
 
 [[package]]
 name = "mjolnir-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64",
  "cpal",
@@ -490,8 +496,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mjolnir-plugin"
+version = "0.2.0"
+dependencies = [
+ "mjolnir-engine",
+ "vst3",
+]
+
+[[package]]
 name = "mjolnir-web"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "mjolnir-app",
  "mjolnir-engine",
@@ -976,6 +990,15 @@ name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
+
+[[package]]
+name = "vst3"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e31e3fe7a6f028ded8c5a9984cf283319e6dc63572c9b71da1d4ee9d71d3b6bf"
+dependencies = [
+ "com-scrape-types",
+]
 
 [[package]]
 name = "walkdir"

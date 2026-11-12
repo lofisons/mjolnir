@@ -7,9 +7,12 @@
 #   release/Mjolnir-<v>-mac-arm64.zip      a disk image for Apple silicon
 #   release/Mjolnir-<v>-mac-x64.zip        a disk image for Intel Macs
 #   release/Mjolnir-<v>-android.zip        an APK
+#   release/Mjolnir-<v>-vst3.zip           the plugin, for Windows, macOS and Linux
+#
+# and docs/, the public site: its front page, and the web app under app/.
 #
 #   sh scripts/release.sh            everything
-#   sh scripts/release.sh web linux  only those (web, linux, windows, mac, android)
+#   sh scripts/release.sh web linux  only those (web, linux, windows, mac, android, vst3)
 #
 # Needs: Rust with the wasm32-unknown-unknown target, Node 22 and pnpm, a JDK,
 # python3, zip, xorriso (the Mac disk image), wine with 32-bit support (the
@@ -20,7 +23,7 @@ set -e
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 V=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-WANT=${*:-web linux windows mac android}
+WANT=${*:-web linux windows mac android vst3}
 OUT="$ROOT/release"
 mkdir -p "$OUT"
 has() { case " $WANT " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
@@ -32,9 +35,9 @@ pnpm build >/dev/null
 node tools/build_demos.mjs >/dev/null
 pnpm exec vite build >/dev/null
 cp LICENSE dist/LICENSE.txt
-# the same site, kept in the repository so any static host (GitHub Pages
-# from main, /docs) can serve it
-rm -rf docs && cp -r dist docs && touch docs/.nojekyll
+# the public site, kept in the repository so any static host (GitHub Pages
+# from main, /docs) can serve it: the front page, and the app under app/
+sh scripts/build-site.sh
 if has web; then NAME="Mjolnir-$V-web.zip" pack x dist .; fi
 
 if has linux || has windows || has mac; then
@@ -78,6 +81,16 @@ if has android; then
   echo "android"
   sh android/build.sh >/dev/null 2>&1
   NAME="Mjolnir-$V-android.zip" pack x "$OUT/android" "Mjolnir-$V.apk"
+fi
+
+if has vst3; then
+  sh scripts/build-vst3.sh
+  rm -rf "$OUT/vst3/pack" && mkdir -p "$OUT/vst3/pack/Windows" "$OUT/vst3/pack/macOS" "$OUT/vst3/pack/Linux"
+  cp -a "$OUT/vst3/windows/Mjolnir.vst3" "$OUT/vst3/pack/Windows/"
+  cp -a "$OUT/vst3/mac/Mjolnir.vst3" "$OUT/vst3/pack/macOS/"
+  cp -a "$OUT/vst3/linux/Mjolnir.vst3" "$OUT/vst3/pack/Linux/"
+  cp crates/plugin/README.txt "$OUT/vst3/pack/README.txt"
+  NAME="Mjolnir-$V-vst3.zip" pack x "$OUT/vst3/pack" README.txt Windows macOS Linux
 fi
 
 (cd "$OUT" && sha256sum Mjolnir-"$V"-*.zip > SHA256SUMS.txt)
