@@ -622,11 +622,7 @@ impl Controller {
                 patch: crate::instruments::patch_for(*preset),
             },
             InstrumentSpec::Drums { kit } => {
-                let names_from = if *kit == DrumKitId::Dust {
-                    DrumKitId::LoFi
-                } else {
-                    *kit
-                };
+                let names_from = if kit.sampled() { DrumKitId::LoFi } else { *kit };
                 InstrumentSpec::CustomKit {
                     name: format!("My {} kit", names_from.label().to_lowercase()),
                     pads: crate::instruments::kit_pads(*kit),

@@ -5,7 +5,8 @@ import type { Action, Info, PadInfo, Pattern, Project, Status } from "./api";
 import { TICKS_PER_STEP } from "./api";
 import * as engine from "./engine";
 
-export type Face = "play" | "clips" | "song" | "sound" | "set";
+export type Face = "loops" | "song" | "set";
+export type Pane = "notes" | "sound";
 const RECOVERY = "mjolnir.recovery";
 
 export const app = $state({
@@ -15,7 +16,10 @@ export const app = $state({
   project: null as Project | null,
   status: null as Status | null,
   info: null as Info | null,
-  face: "play" as Face,
+  face: "loops" as Face,
+  /** Inside a track: the loops face shows its notes or its sound instead of the grid. */
+  open: false,
+  pane: "notes" as Pane,
   track: 0,
   section: 0,
   pad: 0,
@@ -131,6 +135,20 @@ export async function selectTrack(i: number): Promise<void> {
   await refreshPads();
 }
 
+/** Step into a loop: its track, its section, ready to play and write. */
+export async function openCell(t: number, s: number): Promise<void> {
+  app.section = s;
+  app.page = 0;
+  if (app.track !== t) await selectTrack(t);
+  app.face = "loops";
+  app.pane = "notes";
+  app.open = true;
+}
+
+/** A track's identity colour: stable by id, so it survives other tracks coming and going. */
+export const trackColor = (t: { id: number } | null | undefined): string =>
+  t ? `var(--id-${t.id % 8})` : "var(--fg)";
+
 export async function selectSection(s: number): Promise<void> {
   app.section = s;
   app.page = 0;
@@ -175,7 +193,7 @@ export async function togglePlay(): Promise<void> {
     await act({ type: "stop" });
     return;
   }
-  const song = app.face === "song" && (app.project?.song.clips.length ?? 0) > 0;
+  const song = app.face === "song" && !app.open && (app.project?.song.clips.length ?? 0) > 0;
   await act({ type: "set_song_mode", on: song });
   if (!song) await act({ type: "launch_scene", scene: app.section });
   await act({ type: "play" });

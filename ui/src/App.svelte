@@ -1,25 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Screen from "./components/Screen.svelte";
-  import Play from "./components/Play.svelte";
-  import Clips from "./components/Clips.svelte";
+  import Loops from "./components/Loops.svelte";
+  import Track from "./components/Track.svelte";
   import Song from "./components/Song.svelte";
   import Sound from "./components/Sound.svelte";
   import Setup from "./components/Setup.svelte";
-  import {
-    app,
-    act,
-    start,
-    selectTrack,
-    selectSection,
-    togglePlay,
-    toggleRecord,
-    playing,
-    engine,
-    type Face,
-  } from "./lib/app.svelte";
+  import { app, act, start, togglePlay, toggleRecord, playing, engine, type Face } from "./lib/app.svelte";
 
-  const FACES: Face[] = ["play", "clips", "song", "sound", "set"];
+  const FACES: Face[] = ["loops", "song", "set"];
   let wide = $state(false);
 
   onMount(() => {
@@ -30,11 +19,7 @@
       /* private window */
     }
     const mq = matchMedia("(min-width: 860px)");
-    const fit = () => {
-      wide = mq.matches;
-      // on a wide window the sound sits in the panel, always there
-      if (wide && app.face === "sound") app.face = "play";
-    };
+    const fit = () => (wide = mq.matches);
     fit();
     mq.addEventListener("change", fit);
     void start();
@@ -43,9 +28,8 @@
     addEventListener("keydown", wake, true);
   });
 
-  const tracks = $derived(app.project?.tracks ?? []);
   const scenes = $derived(app.project?.scenes ?? []);
-  const faces = $derived(wide ? FACES.filter((f) => f !== "sound") : FACES);
+  const recording = $derived((app.project?.record.notes ?? false) && playing());
 
   // one sentence: what is wrong, else what is happening
   const sentence = $derived.by(() => {
@@ -54,11 +38,17 @@
     if (!app.awake) return "touch anything to start the sound";
     const s = app.status;
     if (s?.count_in) return `count in ${s.count_in}`;
-    if (app.project?.record.notes && playing()) return "recording · play the pads";
+    if (recording) return "recording · play the pads";
     if (s?.song_mode && playing()) return "playing the song";
     if (playing()) return `playing · ${(scenes[app.section]?.name ?? "").toLowerCase()}`;
+    if (app.face === "loops" && !app.open) return "touch + to begin";
     return "stopped";
   });
+
+  function go(f: Face) {
+    app.face = f;
+    app.open = false;
+  }
 
   function key(e: KeyboardEvent) {
     if ((e.target as HTMLElement).tagName === "INPUT") return;
@@ -69,10 +59,12 @@
     } else if (mod && e.key.toLowerCase() === "z") {
       e.preventDefault();
       void act({ type: e.shiftKey ? "redo" : "undo" });
+    } else if (e.key === "Escape" && app.open) {
+      app.open = false;
     } else if (e.key === "Tab" && !mod) {
       e.preventDefault();
-      const i = faces.indexOf(app.face);
-      app.face = faces[(i + (e.shiftKey ? faces.length - 1 : 1)) % faces.length];
+      const i = FACES.indexOf(app.face);
+      go(FACES[(i + (e.shiftKey ? FACES.length - 1 : 1)) % FACES.length]);
     }
   }
 </script>
@@ -92,42 +84,19 @@
     <header class="bar">
       <span class="app">mjolnir</span>
       <div class="nav" role="tablist">
-        {#each faces as f}
-          <button class="plain tab" role="tab" aria-selected={app.face === f} onclick={() => (app.face = f)}>{f}</button>
+        {#each FACES as f}
+          <button class="plain tab" role="tab" aria-selected={app.face === f} onclick={() => go(f)}>{f}</button>
         {/each}
       </div>
     </header>
 
     <div class="work">
       <Screen />
-
-      <div class="strip" role="tablist" aria-label="tracks">
-        {#each tracks as t, i}
-          <button class="plain track" role="tab" aria-selected={app.track === i} class:muted={t.mute} onclick={() => selectTrack(i)}>
-            <span class="label">{i + 1}</span>
-            <span class="tname">{t.name.toLowerCase()}</span>
-            <span class="meter" style="transform: scaleX({Math.min(1, (app.status?.tracks[i]?.level ?? 0) * 2.5)})"></span>
-          </button>
-        {/each}
-      </div>
-
-      {#if app.face === "play" || app.face === "sound"}
-        <div class="strip sections" role="tablist" aria-label="sections">
-          {#each scenes as s, i}
-            <button class="plain track" role="tab" aria-selected={app.section === i} onclick={() => selectSection(i)}>
-              <span class="label">{i + 1}</span>
-              <span class="tname">{s.name.toLowerCase()}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-
       <main class="face">
-        {#if app.face === "play"}<Play />
-        {:else if app.face === "clips"}<Clips />
-        {:else if app.face === "song"}<Song />
-        {:else if app.face === "sound"}<Sound />
-        {:else}<Setup />{/if}
+        {#if app.face === "loops" && app.open}<Track {wide} />
+        {:else if app.face === "loops"}<div class="from-left fill"><Loops /></div>
+        {:else if app.face === "song"}<div class="from-right fill"><Song /></div>
+        {:else}<div class="from-right fill"><Setup /></div>{/if}
       </main>
     </div>
 
@@ -138,10 +107,12 @@
     <footer class="status">
       <span class="sentence" role="status" class:warn={!!app.note}>{sentence}</span>
       <button class="plain" disabled={!app.project?.history.undo} onclick={() => act({ type: "undo" })}>undo</button>
-      <button class:rec={app.project?.record.notes} aria-pressed={app.project?.record.notes ?? false} onclick={toggleRecord}>
-        rec
+      <button class="lit" aria-pressed={app.project?.record.notes ?? false} onclick={toggleRecord}>
+        <span class="led" class:rd={app.project?.record.notes} class:blink={recording}></span>rec
       </button>
-      <button class="primary" aria-pressed={playing()} onclick={togglePlay}>{playing() ? "stop" : "play"}</button>
+      <button class="primary lit" aria-pressed={playing()} onclick={togglePlay}>
+        <span class="led" class:gr={playing()}></span>{playing() ? "stop" : "play"}
+      </button>
     </footer>
   </div>
 {/if}
@@ -190,61 +161,21 @@
   }
   .work {
     display: grid;
-    grid-template-rows: minmax(72px, 14vh) auto auto minmax(0, 1fr);
+    grid-template-rows: minmax(72px, 13vh) minmax(0, 1fr);
     min-height: 0;
-  }
-  .strip {
-    display: flex;
-    border-bottom: 1px solid var(--line);
-    min-height: var(--row);
-    overflow: hidden;
-  }
-  .track {
-    position: relative;
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 8px;
-    border-right: 1px solid var(--line);
-  }
-  .track:first-child {
-    padding-left: 16px;
-    text-align: left;
-  }
-  .sections .track {
-    flex: 0 1 96px;
-  }
-  .track .tname {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .track.muted .tname {
-    color: var(--fg-faint);
-  }
-  .track[aria-selected="true"] .label {
-    color: var(--bg);
-  }
-  .track[aria-selected="true"].muted .tname {
-    color: var(--bg);
-  }
-  .meter {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: var(--fg);
-    transform-origin: left;
-    transform: scaleX(0);
-  }
-  .track[aria-selected="true"] .meter {
-    background: var(--bg);
   }
   .face {
     min-height: 0;
-    grid-row: 4;
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+  }
+  .lit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
   .panel {
     border-left: 1px solid var(--line);

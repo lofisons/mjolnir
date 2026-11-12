@@ -456,10 +456,16 @@ pub enum DrumKitId {
     /// Trap drums through a dusty sampler: long 808 kick, snappy snare and
     /// clap, tight hats made for rolls.
     Trap,
+    /// Sampled from lofisons' own dark tracks: sub kicks, hall snares, quiet hats.
+    Shadow,
+    /// Sampled from lofisons' modular sessions: tight kicks, snaps, ticks.
+    Session,
 }
 
 impl DrumKitId {
-    pub const ALL: [DrumKitId; 7] = [
+    pub const ALL: [DrumKitId; 9] = [
+        DrumKitId::Shadow,
+        DrumKitId::Session,
         DrumKitId::Dust,
         DrumKitId::LoFi,
         DrumKitId::Trap,
@@ -477,7 +483,17 @@ impl DrumKitId {
             DrumKitId::Modular => "Modular",
             DrumKitId::Dust => "Dust (sampled)",
             DrumKitId::Trap => "Trap Lo-Fi",
+            DrumKitId::Shadow => "Shadow",
+            DrumKitId::Session => "Session",
         }
+    }
+
+    /// Kits played from recordings; the others are synthesized.
+    pub fn sampled(self) -> bool {
+        matches!(
+            self,
+            DrumKitId::Dust | DrumKitId::Shadow | DrumKitId::Session
+        )
     }
 
     /// Pad names for the play surface and editor.
@@ -500,6 +516,28 @@ impl DrumKitId {
                 "Kick 2",
                 "Soft snare",
                 "Claves",
+            ],
+            DrumKitId::Shadow => [
+                "Kick",
+                "Snare",
+                "Hall snare",
+                "Hat",
+                "Open hat",
+                "Deep kick",
+                "Boom",
+                "Thud",
+                "Rim",
+                "Knock",
+                "Wash",
+                "Tick",
+                "Shaker",
+                "Kick 2",
+                "Snare 2",
+                "Clack",
+            ],
+            DrumKitId::Session => [
+                "Kick", "Snare", "Snap", "Hat", "Open hat", "Low tom", "Mid tom", "Knock", "Rim",
+                "Blip", "Wash", "Tick", "Shaker", "Kick 2", "Snare 2", "Boom",
             ],
             DrumKitId::Trap => [
                 "Kick",
@@ -966,7 +1004,7 @@ impl Project {
         p.add_track(
             TrackKind::Drums,
             InstrumentSpec::Drums {
-                kit: DrumKitId::LoFi,
+                kit: DrumKitId::Shadow,
             },
         );
         for (preset, octave) in [

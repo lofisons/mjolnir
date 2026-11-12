@@ -86,6 +86,11 @@
     {#each [1, 2, 4] as b}
       <button class="mini" aria-pressed={bars === b} onclick={() => setBars(b)}>{b}</button>
     {/each}
+    <button
+      class="mini"
+      disabled={!pat}
+      onclick={() => act({ type: "delete_pattern", track: app.track, slot: app.section })}>clear</button
+    >
   </div>
 
   <div class="steps" role="group" aria-label="steps">
@@ -206,7 +211,10 @@
     align-items: flex-start;
     text-align: left;
     overflow: hidden;
-    transition: none;
+    /* a hit lights at once and lets go over a moment */
+    transition:
+      background var(--dur-base) var(--ease),
+      color var(--dur-base) var(--ease);
     touch-action: none;
   }
   .pad .n {
@@ -229,6 +237,7 @@
     background: var(--fg);
     color: var(--bg);
     border-color: var(--fg);
+    transition: none;
   }
   .pad.hit .n {
     color: var(--bg);

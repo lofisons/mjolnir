@@ -42,10 +42,8 @@ impl Instrument {
                 sr,
             )),
             InstrumentSpec::Synth { preset } => Instrument::Synth(Synth::new(*preset, sr)),
-            InstrumentSpec::Drums {
-                kit: DrumKitId::Dust,
-            } => {
-                let (kit, slices) = crate::library::dusty_kit();
+            InstrumentSpec::Drums { kit } if kit.sampled() => {
+                let (kit, slices) = crate::library::sampled_kit(*kit);
                 Instrument::Sampler(Sampler::kit(kit, slices, sr))
             }
             InstrumentSpec::Drums { kit } => Instrument::Drums(DrumKit::new(*kit, sr)),
@@ -790,11 +788,7 @@ impl From<DrumSound> for DrumPad {
 /// The pads of a synthesized kit as designable sounds (the sampled Dust kit
 /// has none: designing it starts from the Lo-Fi kit).
 pub fn kit_pads(kit: DrumKitId) -> Vec<DrumPad> {
-    let kit = if kit == DrumKitId::Dust {
-        DrumKitId::LoFi
-    } else {
-        kit
-    };
+    let kit = if kit.sampled() { DrumKitId::LoFi } else { kit };
     kit_sounds(kit).into_iter().map(DrumPad::from).collect()
 }
 
@@ -945,7 +939,7 @@ fn kit_sounds(kit: DrumKitId) -> [DrumSound; DRUM_PADS] {
     ];
     match kit {
         // Sampled kit, built by `Instrument::build`; synthesized fallback only.
-        DrumKitId::Dust => {}
+        DrumKitId::Dust | DrumKitId::Shadow | DrumKitId::Session => {}
         DrumKitId::Tr808 => {
             s[0] = DrumSound {
                 tone_start: 110.0,

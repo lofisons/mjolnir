@@ -108,7 +108,11 @@
     <span>{position}</span>
   </div>
   <div class="bl">
-    <span class="led" class:on={playing()} class:rec={app.project?.record.notes}></span>
+    <span
+      class="led"
+      class:gr={playing() && !app.project?.record.notes}
+      class:rd={playing() && app.project?.record.notes}
+    ></span>
     <span class:quiet={!playing()}>
       {app.project?.record.notes && playing() ? "recording" : playing() ? "playing" : "stopped"}
     </span>
@@ -162,16 +166,5 @@
   }
   .quiet {
     color: var(--fg-muted);
-  }
-  .led {
-    width: 6px;
-    height: 6px;
-    background: var(--fg-faint);
-  }
-  .led.on {
-    background: var(--gr);
-  }
-  .led.on.rec {
-    background: var(--rd);
   }
 </style>

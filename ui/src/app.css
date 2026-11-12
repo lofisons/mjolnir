@@ -21,9 +21,20 @@
   --hover: rgba(237, 237, 234, 0.07);
   --selected: rgba(237, 237, 234, 0.12);
   --pressed: rgba(237, 237, 234, 0.2);
+  /* signal colours: only on an LED beside its word, or a state's frame */
   --rd: #ea8a8c;
   --gr: #a3d68f;
   --yl: #e6cb8e;
+  /* identity colours: one per track, to tell lanes and loops apart; never on text */
+  --id-0: #e8cb95;
+  --id-1: #97b9f3;
+  --id-2: #bfaaf2;
+  --id-3: #86d5cb;
+  --id-4: #f2adcc;
+  --id-5: #cde093;
+  --id-6: #afdcf1;
+  --id-7: #daacdd;
+  --dur-base: 220ms;
 
   --font: "Paper Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --ui: 400 12px/18px var(--font);
@@ -47,6 +58,18 @@
   --hover: rgba(36, 39, 46, 0.045);
   --selected: rgba(36, 39, 46, 0.1);
   --pressed: rgba(36, 39, 46, 0.18);
+  /* on paper the identities are fills under ink: deeper, so they hold */
+  --id-0: #c79a45;
+  --id-1: #5f86d1;
+  --id-2: #8a70d6;
+  --id-3: #3fa598;
+  --id-4: #d4709f;
+  --id-5: #8fa83f;
+  --id-6: #5aa7cf;
+  --id-7: #b06fb6;
+  --rd: #c9484b;
+  --gr: #4f9a35;
+  --yl: #b98a1c;
 }
 
 /* fingers need more than a pointer does */
@@ -144,6 +167,50 @@ input[type="text"] {
   -webkit-user-select: text;
 }
 
+/* an LED: six points of a signal colour, always beside the word it lights */
+.led {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: var(--fg-faint);
+}
+.led.gr {
+  background: var(--gr);
+}
+.led.rd {
+  background: var(--rd);
+}
+.led.yl {
+  background: var(--yl);
+}
+/* a blink is a step, never a fade */
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+.blink {
+  animation: blink 0.6s steps(1) infinite;
+}
+/* a face arrives from the side it lives on */
+@keyframes arrive-right {
+  from {
+    transform: translateX(16px);
+  }
+}
+@keyframes arrive-left {
+  from {
+    transform: translateX(-16px);
+  }
+}
+.from-right {
+  animation: arrive-right var(--dur-fast) var(--ease);
+}
+.from-left {
+  animation: arrive-left var(--dur-fast) var(--ease);
+}
+
 .label {
   font: var(--tick);
   color: var(--fg-muted);
@@ -152,5 +219,6 @@ input[type="text"] {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
   }
 }
