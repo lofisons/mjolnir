@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { capture } from "../lib/api";
   // VSGARD Knob: a ring of 11 ticks, a hairline circle, the travel so far as
   // an arc and an indicator line. Drag up or down; double click resets.
   let {
@@ -52,7 +53,7 @@
       return;
     }
     lastTap = now;
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    capture(e);
     turning = true;
     from = e.clientY;
     fromValue = value;

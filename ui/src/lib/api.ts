@@ -155,6 +155,12 @@ export const PART_UNITY = 0.8;
 export interface Option_ {
   id: string;
   label: string;
+  /** Where the sound browser files it. */
+  category?: string;
+  /** A synth inside, whose every part can be edited. */
+  open?: boolean;
+  /** The octave where the sound sits best. */
+  octave?: number;
 }
 export interface Groove {
   id: string;
@@ -284,4 +290,22 @@ export function scalePitches(scale: Scale, low: number, high: number): number[] 
   const out: number[] = [];
   for (let p = low; p <= high; p++) if (iv.includes((((p - scale.root) % 12) + 12) % 12)) out.push(p);
   return out;
+}
+
+/** The chord of the key built on `pitch`: every other note of the scale above it. */
+export function chordOn(scale: Scale, pitch: number, kind: ChordKind): number[] {
+  const notes = scalePitches(scale, 0, 127);
+  const i = notes.indexOf(pitch);
+  if (i < 0) return [pitch];
+  const steps = { triad: [0, 2, 4], seventh: [0, 2, 4, 6], sus2: [0, 1, 4], sus4: [0, 3, 4], power: [0, 4] }[kind];
+  return steps.map((d) => notes[i + d]).filter((p) => p !== undefined);
+}
+
+/** Hold a pointer on the element it went down on, where the browser allows it. */
+export function capture(e: PointerEvent): void {
+  try {
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  } catch {
+    /* a pointer that is already gone */
+  }
 }

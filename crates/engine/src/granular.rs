@@ -24,6 +24,9 @@ struct GrainParams {
     /// Random detune per grain, in cents.
     jitter_cents: f32,
     gain: f32,
+    /// Seconds for a held note to swell in and to die away.
+    attack: f32,
+    release: f32,
 }
 
 fn params_for(texture: TextureKind, from_sample: bool) -> GrainParams {
@@ -35,11 +38,25 @@ fn params_for(texture: TextureKind, from_sample: bool) -> GrainParams {
             scan: 0.25,
             jitter_cents: 8.0,
             gain: 0.5,
+            attack: 0.6,
+            release: 2.2,
         };
     }
     match texture {
         // a passage of real pads: long grains, a slow walk through it, a
         // little detune so held notes breathe
+        // one voice almost alone: short grains close together and little
+        // wander, so it speaks like an instrument and answers the key
+        TextureKind::ShadowLead | TextureKind::SilentLead => GrainParams {
+            size: 0.14,
+            density: 18.0,
+            spread: 0.1,
+            scan: 0.2,
+            jitter_cents: 3.0,
+            gain: 0.6,
+            attack: 0.04,
+            release: 0.6,
+        },
         TextureKind::ShadowAir | TextureKind::SilentAir | TextureKind::SessionAir => GrainParams {
             size: 0.28,
             density: 12.0,
@@ -47,6 +64,8 @@ fn params_for(texture: TextureKind, from_sample: bool) -> GrainParams {
             scan: 0.12,
             jitter_cents: 6.0,
             gain: 0.55,
+            attack: 0.6,
+            release: 2.2,
         },
         TextureKind::Cloud => GrainParams {
             size: 0.18,
@@ -55,6 +74,8 @@ fn params_for(texture: TextureKind, from_sample: bool) -> GrainParams {
             scan: 0.2,
             jitter_cents: 7.0,
             gain: 0.4,
+            attack: 0.6,
+            release: 2.2,
         },
         TextureKind::Glass => GrainParams {
             size: 0.12,
@@ -63,6 +84,8 @@ fn params_for(texture: TextureKind, from_sample: bool) -> GrainParams {
             scan: 0.3,
             jitter_cents: 5.0,
             gain: 0.4,
+            attack: 0.6,
+            release: 2.2,
         },
     }
 }
@@ -104,11 +127,12 @@ impl Granular {
         from_sample: bool,
         sr: f32,
     ) -> Self {
+        let params = params_for(texture, from_sample);
         let streams = (0..MAX_STREAMS)
             .map(|_| Stream {
                 pitch: 0,
                 vel: 0.0,
-                env: Adsr::new(0.6, 0.2, 1.0, 2.2, sr),
+                env: Adsr::new(params.attack, 0.2, 1.0, params.release, sr),
                 pos: 0.0,
                 countdown: 0.0,
             })
@@ -116,7 +140,7 @@ impl Granular {
         Granular {
             source,
             root: root as f32,
-            params: params_for(texture, from_sample),
+            params,
             streams,
             grains: [Grain::default(); MAX_GRAINS],
             noise: Noise::new(777),

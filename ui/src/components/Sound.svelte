@@ -2,24 +2,50 @@
   // The sound face: which sound, its seven macros, and, once opened, every
   // part of the synth as a knob.
   import Knob from "./Knob.svelte";
-  import { app, act, live, track, setInstrument, refreshPads, selectTrack } from "../lib/app.svelte";
+  import { app, act, live, track, setInstrument, selectTrack } from "../lib/app.svelte";
   import { MACROS, type InstrumentSpec, type ParamSpec } from "../lib/api";
 
   const t = $derived(track());
   const catalog = $derived(app.info?.catalog);
   const drums = $derived(t?.kind === "drums");
-  /** Every sound this kind of track can wear, in the order the arrows step. */
-  const choices = $derived.by((): { label: string; spec: InstrumentSpec }[] => {
+  interface Choice {
+    label: string;
+    category: string;
+    spec: InstrumentSpec;
+    octave?: number;
+    open: boolean;
+  }
+  /** Every sound this kind of track can wear, filed by what it is. */
+  const choices = $derived.by((): Choice[] => {
     if (!catalog) return [];
-    if (drums) return catalog.kits.map((k) => ({ label: k.label, spec: { type: "drums", kit: k.id } }));
+    if (drums)
+      return catalog.kits.map((k) => ({
+        label: k.label,
+        category: k.category ?? "kits",
+        spec: { type: "drums", kit: k.id },
+        open: k.category === "synth kits",
+      }));
     return [
-      ...catalog.presets.map((k) => ({ label: k.label, spec: { type: "synth", preset: k.id } as InstrumentSpec })),
+      ...catalog.presets.map((k) => ({
+        label: k.label,
+        category: k.category ?? "keys",
+        spec: { type: "synth", preset: k.id } as InstrumentSpec,
+        octave: k.octave,
+        open: k.open ?? false,
+      })),
       ...catalog.textures.map((k) => ({
         label: k.label,
+        category: k.category ?? "pads",
         spec: { type: "granular", texture: k.id, sample: null } as InstrumentSpec,
+        octave: k.octave,
+        open: false,
       })),
     ];
   });
+  const ORDER = ["from the tracks", "synth kits", "chops", "bass", "keys", "pads", "leads"];
+  const categories = $derived(
+    [...new Set(choices.map((c) => c.category))].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)),
+  );
   const current = $derived.by(() => {
     const i = t?.instrument;
     if (!i) return -1;
@@ -36,14 +62,21 @@
     if (i.type === "custom_synth" || i.type === "custom_kit") return i.name;
     return choices[current]?.label ?? i.type;
   });
-  /** A texture is a recording played as grains: there is no synth inside to open. */
-  const openable = $derived(t?.instrument.type === "drums" || t?.instrument.type === "synth");
+  /** Only a synth has parts to open; a recording is what it is. */
+  const openable = $derived(choices[current]?.open ?? false);
   const designed = $derived(t?.instrument.type === "custom_synth" || t?.instrument.type === "custom_kit");
 
-  function step(d: number) {
-    if (!choices.length) return;
-    const i = (((current < 0 ? 0 : current + d) % choices.length) + choices.length) % choices.length;
-    void setInstrument(choices[i].spec);
+  // the shelf on screen: the current sound's own, until another is picked
+  let picked = $state<string | null>(null);
+  const shelf = $derived(picked && categories.includes(picked) ? picked : (choices[current]?.category ?? categories[0]));
+  $effect(() => {
+    // another track: back to its own shelf
+    void app.track;
+    picked = null;
+  });
+
+  function choose(c: Choice) {
+    void setInstrument(c.spec, c.octave);
   }
 
   const macroValue = (i: number) => app.status?.tracks[app.track]?.macros[i] ?? t?.macros[i] ?? 0;
@@ -94,10 +127,17 @@
 
 {#if t}
   <div class="sound">
-    <div class="pick">
-      <button aria-label="previous sound" onclick={() => step(-1)}>←</button>
-      <span class="name">{name.toLowerCase()}</span>
-      <button aria-label="next sound" onclick={() => step(1)}>→</button>
+    <div class="name">{name.toLowerCase()}</div>
+
+    <div class="shelves" role="tablist" aria-label="kinds of sound">
+      {#each categories as c}
+        <button role="tab" aria-selected={shelf === c} onclick={() => (picked = c)}>{c}</button>
+      {/each}
+    </div>
+    <div class="shelf" role="listbox" aria-label="sounds">
+      {#each choices.filter((c) => c.category === shelf) as c}
+        <button role="option" aria-selected={c.label === name} onclick={() => choose(c)}>{c.label.toLowerCase()}</button>
+      {/each}
     </div>
 
     <div class="knobs">
@@ -119,24 +159,7 @@
     <div class="tools">
       <button aria-pressed={t.mute} onclick={() => act({ type: "set_mute", track: app.track, mute: !t.mute })}>mute</button>
       <button aria-pressed={t.solo} onclick={() => act({ type: "set_solo", track: app.track, solo: !t.solo })}>solo</button>
-      {#if !drums}
-        <span class="label">octave</span>
-        <button
-          aria-label="octave down"
-          onclick={async () => {
-            await act({ type: "set_octave", track: app.track, octave: t.octave - 1 });
-            await refreshPads();
-          }}>−</button
-        >
-        <span>{t.octave}</span>
-        <button
-          aria-label="octave up"
-          onclick={async () => {
-            await act({ type: "set_octave", track: app.track, octave: t.octave + 1 });
-            await refreshPads();
-          }}>+</button
-        >
-      {/if}
+
       <span class="grow"></span>
       <button disabled={(app.project?.tracks.length ?? 0) < 2} onclick={removeTrack}>remove track</button>
     </div>
@@ -180,17 +203,37 @@
     height: 100%;
     overflow-y: auto;
   }
-  .pick {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .pick .name {
-    flex: 1;
+  .name {
     font: var(--title);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .shelves {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: -8px;
+  }
+  .shelves button {
+    border: 0;
+    color: var(--fg-muted);
+    padding: 0 10px;
+  }
+  .shelves button[aria-selected="true"] {
+    background: none;
+    color: var(--fg);
+    box-shadow: inset 0 -1px 0 var(--fg);
+  }
+  .shelf {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 4px;
+  }
+  .shelf button {
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .knobs {
     display: grid;

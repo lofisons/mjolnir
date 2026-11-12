@@ -460,19 +460,23 @@ pub enum DrumKitId {
     Shadow,
     /// Sampled from lofisons' modular sessions: tight kicks, snaps, ticks.
     Session,
+    /// Sixteen slices of the pads and keys of lofisons' Shadow Ambient.
+    ShadowChops,
+    /// Sixteen slices of the pads and keys of lofisons' Silent Focus.
+    SilentChops,
 }
 
 impl DrumKitId {
-    pub const ALL: [DrumKitId; 9] = [
+    /// The kits a person can pick. Older kits (Acoustic, Boom, Club, Dust)
+    /// still open in old projects but are no longer offered.
+    pub const ALL: [DrumKitId; 7] = [
         DrumKitId::Shadow,
         DrumKitId::Session,
-        DrumKitId::Dust,
         DrumKitId::LoFi,
         DrumKitId::Trap,
         DrumKitId::Modular,
-        DrumKitId::Acoustic,
-        DrumKitId::Tr808,
-        DrumKitId::Tr909,
+        DrumKitId::ShadowChops,
+        DrumKitId::SilentChops,
     ];
     pub fn label(self) -> &'static str {
         match self {
@@ -485,6 +489,17 @@ impl DrumKitId {
             DrumKitId::Trap => "Trap Lo-Fi",
             DrumKitId::Shadow => "Shadow",
             DrumKitId::Session => "Session",
+            DrumKitId::ShadowChops => "Shadow chops",
+            DrumKitId::SilentChops => "Silent chops",
+        }
+    }
+
+    /// Where the sound browser files it.
+    pub fn category(self) -> &'static str {
+        match self {
+            DrumKitId::ShadowChops | DrumKitId::SilentChops => "chops",
+            DrumKitId::Shadow | DrumKitId::Session => "from the tracks",
+            _ => "synth kits",
         }
     }
 
@@ -516,6 +531,11 @@ impl DrumKitId {
                 "Kick 2",
                 "Soft snare",
                 "Claves",
+            ],
+            DrumKitId::ShadowChops | DrumKitId::SilentChops => [
+                "Chop 1", "Chop 2", "Chop 3", "Chop 4", "Chop 5", "Chop 6", "Chop 7", "Chop 8",
+                "Chop 9", "Chop 10", "Chop 11", "Chop 12", "Chop 13", "Chop 14", "Chop 15",
+                "Chop 16",
             ],
             DrumKitId::Shadow => [
                 "Kick",
@@ -620,40 +640,102 @@ pub enum SynthPreset {
     SilentSub,
     /// One bass note sampled from a lofisons modular session.
     SessionBass,
+    /// A real upright piano played softly and darkened (CC0 recordings).
+    SoftPiano,
+    /// A glockenspiel, rung like a music box.
+    MusicBox,
+    Harp,
+    /// Cello, viola and violin sections, held with vibrato.
+    Strings,
+    /// The quiet manual of a pipe organ.
+    Organ,
+    Flute,
+    /// A bowed double bass.
+    Contrabass,
 }
 
 impl SynthPreset {
     /// Presets played from a recording of one note, with the note it holds.
-    pub fn sampled(self) -> Option<(&'static str, u8)> {
+    /// Presets played from several recorded notes of a real instrument.
+    pub fn zoned(self) -> Option<&'static str> {
         match self {
-            SynthPreset::ShadowSub => Some(("bass_shadow", 32)),
-            SynthPreset::SilentSub => Some(("bass_silent", 31)),
-            SynthPreset::SessionBass => Some(("bass_session", 37)),
+            SynthPreset::SoftPiano => Some("inst_piano"),
+            SynthPreset::MusicBox => Some("inst_musicbox"),
+            SynthPreset::Harp => Some("inst_harp"),
+            SynthPreset::Strings => Some("inst_strings"),
+            SynthPreset::Organ => Some("inst_organ"),
+            SynthPreset::Flute => Some("inst_flute"),
+            SynthPreset::Contrabass => Some("inst_contrabass"),
             _ => None,
         }
     }
 
-    pub const ALL: [SynthPreset; 14] = [
+    /// Where the sound browser files it.
+    pub fn category(self) -> &'static str {
+        match self {
+            SynthPreset::ShadowSub
+            | SynthPreset::SilentSub
+            | SynthPreset::SessionBass
+            | SynthPreset::Contrabass
+            | SynthPreset::Bass
+            | SynthPreset::SubBass
+            | SynthPreset::Bass808 => "bass",
+            SynthPreset::Pad | SynthPreset::Strings | SynthPreset::Organ => "pads",
+            SynthPreset::Flute | SynthPreset::Lead => "leads",
+            _ => "keys",
+        }
+    }
+
+    /// The octave its keys start in, where the sound sits best.
+    pub fn home_octave(self) -> i32 {
+        match self {
+            SynthPreset::ShadowSub | SynthPreset::SilentSub | SynthPreset::SessionBass => 1,
+            SynthPreset::Contrabass
+            | SynthPreset::Bass
+            | SynthPreset::SubBass
+            | SynthPreset::Bass808 => 2,
+            SynthPreset::Strings | SynthPreset::Organ => 3,
+            SynthPreset::MusicBox => 5,
+            _ => 4,
+        }
+    }
+
+    pub fn sampled(self) -> Option<(&'static str, u8)> {
+        match self {
+            SynthPreset::ShadowSub => Some(("bass_shadow", 32)),
+            SynthPreset::SilentSub => Some(("bass_silent", 31)),
+            // its recording is gone: it plays the Shadow sub
+            SynthPreset::SessionBass => Some(("bass_shadow", 32)),
+            _ => None,
+        }
+    }
+
+    /// The sounds a person can pick. The older synth presets still open in
+    /// old projects but are no longer offered.
+    pub const ALL: [SynthPreset; 10] = [
         SynthPreset::ShadowSub,
         SynthPreset::SilentSub,
-        SynthPreset::SessionBass,
-        SynthPreset::Piano,
-        SynthPreset::Rhodes,
-        SynthPreset::FmBell,
-        SynthPreset::Mallet,
-        SynthPreset::Keys,
-        SynthPreset::Pluck,
-        SynthPreset::Bass,
-        SynthPreset::Bass808,
+        SynthPreset::Contrabass,
+        SynthPreset::SoftPiano,
+        SynthPreset::MusicBox,
+        SynthPreset::Harp,
+        SynthPreset::Strings,
+        SynthPreset::Organ,
         SynthPreset::Pad,
-        SynthPreset::Lead,
-        SynthPreset::SubBass,
+        SynthPreset::Flute,
     ];
     pub fn label(self) -> &'static str {
         match self {
             SynthPreset::ShadowSub => "Shadow sub",
             SynthPreset::SilentSub => "Silent sub",
             SynthPreset::SessionBass => "Session bass",
+            SynthPreset::SoftPiano => "Soft piano",
+            SynthPreset::MusicBox => "Music box",
+            SynthPreset::Harp => "Harp",
+            SynthPreset::Strings => "Strings",
+            SynthPreset::Organ => "Quiet organ",
+            SynthPreset::Flute => "Flute",
+            SynthPreset::Contrabass => "Contrabass",
             SynthPreset::Keys => "Dusty keys",
             SynthPreset::Pluck => "Soft pluck",
             SynthPreset::Bass => "Round bass",
@@ -719,15 +801,20 @@ pub enum TextureKind {
     SilentAir,
     /// Four seconds of a lofisons modular session, as a cloud.
     SessionAir,
+    /// The voice that closes lofisons' Shadow Ambient, almost alone.
+    ShadowLead,
+    /// The voice that opens lofisons' Silent Focus, almost alone.
+    SilentLead,
 }
 
 impl TextureKind {
-    pub const ALL: [TextureKind; 5] = [
+    /// The textures a person can pick (Cloud, Glass and the session air
+    /// still open in old projects).
+    pub const ALL: [TextureKind; 4] = [
         TextureKind::ShadowAir,
         TextureKind::SilentAir,
-        TextureKind::SessionAir,
-        TextureKind::Cloud,
-        TextureKind::Glass,
+        TextureKind::ShadowLead,
+        TextureKind::SilentLead,
     ];
     pub fn label(self) -> &'static str {
         match self {
@@ -736,16 +823,34 @@ impl TextureKind {
             TextureKind::ShadowAir => "Shadow air",
             TextureKind::SilentAir => "Silent air",
             TextureKind::SessionAir => "Session air",
+            TextureKind::ShadowLead => "Shadow lead",
+            TextureKind::SilentLead => "Silent lead",
         }
     }
 
-    /// Textures read from a recording: its name and the note at which it
-    /// plays at its own pitch (the root of the chord it holds, near middle C).
+    /// Where the sound browser files it.
+    pub fn category(self) -> &'static str {
+        match self {
+            TextureKind::ShadowLead | TextureKind::SilentLead => "leads",
+            _ => "pads",
+        }
+    }
+
+    /// A lead answers the key at once; an air swells in.
+    pub fn is_lead(self) -> bool {
+        matches!(self, TextureKind::ShadowLead | TextureKind::SilentLead)
+    }
+
+    /// Textures read from a recording: its name and the note it holds (for
+    /// an air, the root of its chord), so a key sounds at its own pitch.
     pub fn sampled(self) -> Option<(&'static str, u8)> {
         match self {
-            TextureKind::ShadowAir => Some(("air_shadow", 68)),
-            TextureKind::SilentAir => Some(("air_silent", 67)),
-            TextureKind::SessionAir => Some(("air_session", 68)),
+            TextureKind::ShadowAir => Some(("air_shadow", 56)),
+            TextureKind::SilentAir => Some(("air_silent", 55)),
+            // its recording is gone: it plays the Shadow air
+            TextureKind::SessionAir => Some(("air_shadow", 56)),
+            TextureKind::ShadowLead => Some(("lead_shadow", 58)),
+            TextureKind::SilentLead => Some(("lead_silent", 58)),
             _ => None,
         }
     }
@@ -761,7 +866,7 @@ impl InstrumentSpec {
             InstrumentSpec::Granular {
                 sample: Some(id), ..
             } => format!("Granular #{id}"),
-            InstrumentSpec::Granular { texture, .. } => format!("Texture {}", texture.label()),
+            InstrumentSpec::Granular { texture, .. } => texture.label().to_string(),
             InstrumentSpec::CustomSynth { name, .. } | InstrumentSpec::CustomKit { name, .. } => {
                 name.clone()
             }
@@ -810,18 +915,10 @@ impl Track {
     ) -> Self {
         let octave = match (&instrument, kind) {
             (_, TrackKind::Drums) => 0,
-            (
-                InstrumentSpec::Synth {
-                    preset:
-                        SynthPreset::Bass
-                        | SynthPreset::SubBass
-                        | SynthPreset::Bass808
-                        | SynthPreset::ShadowSub
-                        | SynthPreset::SilentSub
-                        | SynthPreset::SessionBass,
-                },
-                _,
-            ) => 2,
+            (InstrumentSpec::Synth { preset }, _) if preset.home_octave() != 4 => {
+                preset.home_octave()
+            }
+            (InstrumentSpec::Granular { texture, .. }, _) if texture.sampled().is_some() => 3,
             (InstrumentSpec::SampleMelodic { root, .. }, _) => (*root as i32 / 12 - 1).clamp(1, 6),
             // a designed bass (sub-heavy, mono) starts low
             (InstrumentSpec::CustomSynth { patch, .. }, _)
@@ -1038,7 +1135,7 @@ impl Default for Project {
 
 impl Project {
     /// An empty workspace in the house mood: slow, minor, a little tape on the
-    /// master, with the Shadow drums, sub and air and the felt piano ready.
+    /// master, with the Shadow drums, sub and air and the soft piano ready.
     pub fn blank() -> Self {
         let mut p = Project {
             bpm: 84.0,
@@ -1052,7 +1149,7 @@ impl Project {
             },
             ..Project::default()
         };
-        for name in ["A", "B", "C", "D"] {
+        for name in ["A", "B", "C", "D", "E", "F", "G", "H"] {
             p.add_scene(name);
         }
         p.add_track(
@@ -1061,32 +1158,20 @@ impl Project {
                 kit: DrumKitId::Shadow,
             },
         );
-        let melodic = [
-            (
-                InstrumentSpec::Synth {
-                    preset: SynthPreset::ShadowSub,
-                },
-                1,
-            ),
-            (
-                InstrumentSpec::Granular {
-                    texture: TextureKind::ShadowAir,
-                    sample: None,
-                },
-                4,
-            ),
-            (
-                InstrumentSpec::Synth {
-                    preset: SynthPreset::Piano,
-                },
-                4,
-            ),
-        ];
-        for (instrument, octave) in melodic {
+        for instrument in [
+            InstrumentSpec::Synth {
+                preset: SynthPreset::ShadowSub,
+            },
+            InstrumentSpec::Granular {
+                texture: TextureKind::ShadowAir,
+                sample: None,
+            },
+            InstrumentSpec::Synth {
+                preset: SynthPreset::SoftPiano,
+            },
+        ] {
             p.add_track(TrackKind::Melodic, instrument);
-            p.tracks.last_mut().unwrap().octave = octave;
         }
-        p.tracks[2].name = "Shadow air".into();
         let set = |t: &mut Track, m: &[(MacroParam, f32)]| {
             m.iter().for_each(|&(k, v)| t.macros.set(k, v))
         };
@@ -1096,7 +1181,7 @@ impl Project {
         );
         set(
             &mut p.tracks[3],
-            &[(MacroParam::Reverb, 0.3), (MacroParam::Delay, 0.15)],
+            &[(MacroParam::Reverb, 0.45), (MacroParam::Delay, 0.2)],
         );
         p
     }

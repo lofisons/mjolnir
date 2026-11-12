@@ -1,0 +1,43 @@
+{
+ "attack": 0.002,
+ "release": 0.5,
+ "gain": 0.9,
+ "zones": [
+  {
+   "root": 45,
+   "start": 0,
+   "end": 52920,
+   "loop": null
+  },
+  {
+   "root": 52,
+   "start": 52928,
+   "end": 105848,
+   "loop": null
+  },
+  {
+   "root": 59,
+   "start": 105856,
+   "end": 158776,
+   "loop": null
+  },
+  {
+   "root": 65,
+   "start": 158784,
+   "end": 211704,
+   "loop": null
+  },
+  {
+   "root": 72,
+   "start": 211712,
+   "end": 264632,
+   "loop": null
+  },
+  {
+   "root": 79,
+   "start": 264640,
+   "end": 317560,
+   "loop": null
+  }
+ ]
+}

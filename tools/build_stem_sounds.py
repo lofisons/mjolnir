@@ -9,6 +9,8 @@ it, nothing landing on its tail) is cut out: mono, 16-bit, 32 kHz.
 Basses: one clean, steady note from each bass stem, with its pitch.
 Airs: four seconds of each pad stem where the harmony holds still; the
 granular instrument plays them as drifting clouds.
+Leads: the passages where one voice stands almost alone, played the same way.
+Chops: sixteen slices of each pad stem, as a kit.
 
 Usage:  python3 tools/build_stem_sounds.py <folder of stems as 48 kHz mono wav>
         (drums as <Track>.wav, the others as <Track>__bass.wav, <Track>__other.wav)
@@ -150,10 +152,12 @@ def cut(y, h, peak, label):
 TONES = {
     "bass_shadow": ("Shadow_Ambient__bass", 85.54, 1.50, 0.42),
     "bass_silent": ("Silent_Focus__bass", 53.86, 1.47, 0.42),
-    "bass_session": ("Modular_Code_Sessions_Vol__200__bass", 20.14, 2.30, 0.42),
     "air_shadow": ("Shadow_Ambient__other", 107.83, 4.0, 0.7),
     "air_silent": ("Silent_Focus__other", 59.91, 4.0, 0.7),
-    "air_session": ("Modular_Code_Sessions_Vol__200__other", 63.90, 4.0, 0.7),
+    # where one voice stands almost alone: the end of Shadow Ambient, the
+    # opening of Silent Focus. Played as grains they are the tracks' own leads.
+    "lead_shadow": ("Shadow_Ambient__other", 144.64, 2.6, 0.7),
+    "lead_silent": ("Silent_Focus__other", 5.80, 4.0, 0.7),
 }
 TONE_RATE = 24000
 
@@ -177,6 +181,52 @@ def tones(folder):
             w.setframerate(TONE_RATE)
             w.writeframes((np.clip(seg, -1, 1) * 32767).astype("<i2").tobytes())
         print(f"{name:13s} {stem:38s} at {start:7.2f}s  {len(seg) / TONE_RATE:.2f} s")
+
+
+# chop kits: sixteen slices of each pad stem, cut where something new begins
+CHOPS = {"shadowchops": "Shadow_Ambient__other", "silentchops": "Silent_Focus__other"}
+CHOP_RATE = 22050
+
+
+def chops(folder):
+    for kit, stem in CHOPS.items():
+        y, sr = sf.read(os.path.join(folder, stem + ".wav"))
+        y = y.astype(np.float32)
+        env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=512)
+        onsets = librosa.onset.onset_detect(onset_envelope=env, sr=sr, hop_length=512, backtrack=True, delta=0.15)
+        level = librosa.feature.rms(y=y, frame_length=2048, hop_length=512)[0]
+        # the strongest beginning in each sixteenth of the track, so the kit
+        # walks through the whole piece
+        picks = []
+        edges = np.linspace(0, len(env), 17).astype(int)
+        for a, b in zip(edges[:-1], edges[1:]):
+            inside = [o for o in onsets if a <= o < b and level[min(o + 4, len(level) - 1)] > level.max() * 0.2]
+            if inside:
+                picks.append(max(inside, key=lambda o: env[min(o + 2, len(env) - 1)]))
+        # a quiet stretch gives nothing: fill up with the strongest beginnings
+        # left, none closer than two seconds to one already taken
+        for o in sorted(onsets, key=lambda o: -env[min(o + 2, len(env) - 1)]):
+            if len(picks) >= 16:
+                break
+            if all(abs(o - q) > int(2.0 * sr / 512) for q in picks):
+                picks.append(o)
+        picks.sort()
+        for i in range(16):
+            o = picks[i % len(picks)]
+            later = [n for n in onsets if n > o + int(0.3 * sr / 512)]
+            end = min(later[0] if later else o + 200, o + int(0.9 * sr / 512))
+            seg = y[o * 512 : end * 512].astype(np.float64)
+            seg = librosa.resample(seg, orig_sr=sr, target_sr=CHOP_RATE)
+            seg[: int(0.004 * CHOP_RATE)] *= np.linspace(0, 1, int(0.004 * CHOP_RATE))
+            fade = int(0.06 * CHOP_RATE)
+            seg[-fade:] *= np.linspace(1, 0, fade)
+            seg = seg / (np.abs(seg).max() + 1e-12) * 0.7
+            with wave.open(os.path.join(OUT, f"{kit}_{i:02d}.wav"), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(CHOP_RATE)
+                w.writeframes((np.clip(seg, -1, 1) * 32767).astype("<i2").tobytes())
+            print(f"{kit}_{i:02d} at {o * 512 / sr:7.2f}s  {len(seg) / CHOP_RATE * 1000:4.0f} ms")
 
 
 def main():
@@ -205,6 +255,7 @@ def main():
                 f"{len(seg) / RATE * 1000:4.0f} ms  centre {h['cen']:5.0f} Hz  before {h['pre']:.3f}"
             )
     tones(sys.argv[1])
+    chops(sys.argv[1])
 
 
 if __name__ == "__main__":

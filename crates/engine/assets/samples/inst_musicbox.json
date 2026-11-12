@@ -1,0 +1,31 @@
+{
+ "attack": 0.001,
+ "release": 0.6,
+ "gain": 0.7,
+ "zones": [
+  {
+   "root": 79,
+   "start": 0,
+   "end": 48510,
+   "loop": null
+  },
+  {
+   "root": 84,
+   "start": 48518,
+   "end": 97028,
+   "loop": null
+  },
+  {
+   "root": 91,
+   "start": 97036,
+   "end": 145546,
+   "loop": null
+  },
+  {
+   "root": 96,
+   "start": 145554,
+   "end": 194064,
+   "loop": null
+  }
+ ]
+}

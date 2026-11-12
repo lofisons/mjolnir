@@ -41,6 +41,12 @@ impl Instrument {
                 crate::piano::ModalProfile::SOFT_PLUCK,
                 sr,
             )),
+            InstrumentSpec::Synth { preset } if preset.zoned().is_some() => {
+                let i = crate::library::instrument(preset.zoned().unwrap());
+                Instrument::Sampler(Sampler::zoned(
+                    i.sample, i.zones, i.attack, i.release, i.gain, sr,
+                ))
+            }
             InstrumentSpec::Synth { preset } if preset.sampled().is_some() => {
                 let (name, root) = preset.sampled().unwrap();
                 Instrument::Sampler(Sampler::melodic(crate::library::tone(name), root, sr))
@@ -270,9 +276,17 @@ pub fn patch_for(p: SynthPreset) -> Patch {
         // Procedural felt piano, built by `Instrument::build`; kept total for safety.
         SynthPreset::Piano => patch_for(SynthPreset::Rhodes),
         // a sampled bass opens for design as the closest synth: the sub
-        SynthPreset::ShadowSub | SynthPreset::SilentSub | SynthPreset::SessionBass => {
-            patch_for(SynthPreset::SubBass)
-        }
+        SynthPreset::ShadowSub
+        | SynthPreset::SilentSub
+        | SynthPreset::SessionBass
+        | SynthPreset::Contrabass => patch_for(SynthPreset::SubBass),
+        // a recorded instrument has no synth inside; the nearest is the pad
+        SynthPreset::SoftPiano
+        | SynthPreset::MusicBox
+        | SynthPreset::Harp
+        | SynthPreset::Strings
+        | SynthPreset::Organ
+        | SynthPreset::Flute => patch_for(SynthPreset::Pad),
         SynthPreset::SubBass => Patch {
             sub: 1.0,
             tri: 0.08,
@@ -947,7 +961,11 @@ fn kit_sounds(kit: DrumKitId) -> [DrumSound; DRUM_PADS] {
     ];
     match kit {
         // Sampled kit, built by `Instrument::build`; synthesized fallback only.
-        DrumKitId::Dust | DrumKitId::Shadow | DrumKitId::Session => {}
+        DrumKitId::Dust
+        | DrumKitId::Shadow
+        | DrumKitId::Session
+        | DrumKitId::ShadowChops
+        | DrumKitId::SilentChops => {}
         DrumKitId::Tr808 => {
             s[0] = DrumSound {
                 tone_start: 110.0,
@@ -1801,12 +1819,31 @@ struct SamplerVoice {
     end: f64,
     vel: f32,
     env: Adsr,
+    /// Where a held note turns back to, or negative when it rings out.
+    loop_start: f64,
+}
+
+/// One recorded note of a multi-sampled instrument, inside its buffer.
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+pub struct Zone {
+    /// The MIDI note the recording holds.
+    pub root: u8,
+    pub start: u32,
+    pub end: u32,
+    /// Where the steady part begins: a held note turns from `end` back to
+    /// here. None for a note that just rings out.
+    #[serde(rename = "loop")]
+    pub loop_start: Option<u32>,
 }
 
 pub struct Sampler {
     sample: Arc<SampleData>,
     /// None = melodic (root note), Some = kit slices.
     slices: Option<Vec<(u32, u32)>>,
+    /// The recorded notes of a multi-sampled instrument; empty = one
+    /// recording at `root`.
+    zones: Vec<Zone>,
+    gain: f32,
     root: u8,
     voices: Vec<SamplerVoice>,
     sr: f32,
@@ -1817,6 +1854,25 @@ pub struct Sampler {
 impl Sampler {
     pub fn melodic(sample: Arc<SampleData>, root: u8, sr: f32) -> Self {
         Self::make(sample, None, root, sr)
+    }
+
+    /// A multi-sampled instrument: each key plays the nearest recorded note,
+    /// shifted to pitch, with the instrument's own attack and release.
+    pub fn zoned(
+        sample: Arc<SampleData>,
+        zones: Vec<Zone>,
+        attack: f32,
+        release: f32,
+        gain: f32,
+        sr: f32,
+    ) -> Self {
+        let mut s = Self::make(sample, None, 60, sr);
+        s.zones = zones;
+        s.gain = gain;
+        for v in s.voices.iter_mut() {
+            v.env = Adsr::new(attack, 0.1, 1.0, release, sr);
+        }
+        s
     }
 
     pub fn kit(sample: Arc<SampleData>, slices: Vec<(u32, u32)>, sr: f32) -> Self {
@@ -1832,6 +1888,7 @@ impl Sampler {
                 rate: 1.0,
                 start: 0.0,
                 end: 0.0,
+                loop_start: -1.0,
                 vel: 0.0,
                 env: Adsr::new(0.002, 0.1, 1.0, 0.08, sr),
             })
@@ -1839,6 +1896,8 @@ impl Sampler {
         Sampler {
             sample,
             slices,
+            zones: Vec::new(),
+            gain: 1.0,
             root,
             voices,
             sr,
@@ -1850,7 +1909,7 @@ impl Sampler {
         let len = self.sample.frames.len() as f64;
         let base_rate = self.sample.sample_rate as f64 / self.sr as f64;
         let pad = (pitch as i32 - DRUM_BASE_NOTE as i32).rem_euclid(DRUM_PADS as i32) as usize;
-        let (start, end, rate) = match &self.slices {
+        let (start, end, rate, loop_start) = match &self.slices {
             Some(slices) if !slices.is_empty() => {
                 // pads beyond the number of slices replay slices pitched up/down
                 let (s, e) = slices[pad % slices.len()];
@@ -1860,12 +1919,29 @@ impl Sampler {
                     s as f64,
                     (e as f64).min(len),
                     base_rate * 2f64.powf(semis / 12.0),
+                    -1.0,
+                )
+            }
+            _ if !self.zones.is_empty() => {
+                // the recorded note closest to the key
+                let z = self
+                    .zones
+                    .iter()
+                    .min_by_key(|z| (z.root as i32 - pitch as i32).abs())
+                    .copied()
+                    .unwrap();
+                (
+                    z.start as f64,
+                    (z.end as f64).min(len),
+                    base_rate * 2f64.powf((pitch as f64 - z.root as f64) / 12.0),
+                    z.loop_start.map_or(-1.0, |l| l as f64),
                 )
             }
             _ => (
                 0.0,
                 len,
                 base_rate * 2f64.powf((pitch as f64 - self.root as f64) / 12.0),
+                -1.0,
             ),
         };
         let idx = self
@@ -1880,6 +1956,7 @@ impl Sampler {
         v.pos = start;
         v.start = start;
         v.end = end;
+        v.loop_start = loop_start;
         v.rate = rate;
         v.vel = velocity;
         v.env.gate_on();
@@ -1898,12 +1975,18 @@ impl Sampler {
         let frames = &self.sample.frames;
         let kit = self.slices.is_some();
         for v in self.voices.iter_mut().filter(|v| v.env.is_active()) {
-            let part = if kit { self.parts[v.pad] } else { 1.0 };
+            let part = if kit { self.parts[v.pad] } else { self.gain };
             for o in out.iter_mut() {
                 if v.pos >= v.end - 1.0 {
-                    // samples are faded out when recorded, so a hard stop is clean
-                    v.env.kill();
-                    break;
+                    if v.loop_start >= 0.0 {
+                        // a held note: the loop was cross-faded when it was
+                        // made, so the turn is seamless
+                        v.pos = v.loop_start + (v.pos - (v.end - 1.0));
+                    } else {
+                        // samples are faded out when recorded, so a hard stop is clean
+                        v.env.kill();
+                        break;
+                    }
                 }
                 let i = v.pos as usize;
                 let frac = (v.pos - i as f64) as f32;

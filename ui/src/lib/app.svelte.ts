@@ -2,7 +2,7 @@
 // transport, and what the person has selected.
 
 import type { Action, Info, PadInfo, Pattern, Project, Status } from "./api";
-import { TICKS_PER_STEP } from "./api";
+import { TICKS_PER_STEP, barTicks } from "./api";
 import * as engine from "./engine";
 
 export type Face = "loops" | "song" | "set";
@@ -28,6 +28,10 @@ export const app = $state({
   pads: [] as PadInfo[],
   /** The last thing that went wrong, for the status line. */
   note: "",
+  /** How a melodic track is played on screen. */
+  surface: "keys" as "keys" | "pads",
+  /** Length of a note written in the roll, in sixteenths. */
+  noteLen: 2,
   /** Sound is running (it needs a first touch). */
   awake: false,
   busy: "",
@@ -161,8 +165,72 @@ export async function toggleStep(step: number): Promise<void> {
   const s = app.section;
   if (!pattern(t, s)) await act({ type: "create_pattern", track: t, slot: s, bars: 1 });
   await act({ type: "toggle_step", track: t, slot: s, step, pitch: padPitch(), velocity: 0.8 });
+  await hear(t, s);
+}
+
+/** While the transport runs, a loop being written is a loop being heard. */
+async function hear(t: number, s: number): Promise<void> {
   if (playing() && app.status?.tracks[t]?.active !== s && !app.status?.song_mode)
     await act({ type: "launch", track: t, slot: s });
+}
+
+/** Write a note (or, with chords on, the chord built on it) into the loop. */
+export async function writeNote(pitches: number[], step: number, steps: number): Promise<void> {
+  const t = app.track;
+  const s = app.section;
+  if (!pattern(t, s)) await act({ type: "create_pattern", track: t, slot: s, bars: 1 });
+  for (const pitch of pitches)
+    await act({
+      type: "add_note",
+      track: t,
+      slot: s,
+      note: { start: step * TICKS_PER_STEP, length: steps * TICKS_PER_STEP, pitch, velocity: 0.8 },
+    });
+  await hear(t, s);
+}
+
+/** The loop's length in bars. Growing it repeats what is there, so it keeps playing. */
+export async function setBars(bars: number): Promise<void> {
+  const t = app.track;
+  const s = app.section;
+  const p = pattern(t, s);
+  if (!p) {
+    await act({ type: "create_pattern", track: t, slot: s, bars });
+    return;
+  }
+  const old = p.bars;
+  const notes = p.notes.map((n) => ({ ...n }));
+  await act({ type: "set_bars", track: t, slot: s, bars });
+  const bar = barTicks(app.project?.meter);
+  for (let k = 1; k < bars / old; k++)
+    for (const n of notes)
+      await act({ type: "add_note", track: t, slot: s, note: { ...n, start: n.start + k * old * bar } });
+  if (app.page >= bars) app.page = bars - 1;
+}
+
+/** Start or stop one loop from the grid; the transport starts with the first. */
+export async function toggleCell(t: number, s: number): Promise<boolean> {
+  app.section = s;
+  if (app.track !== t) await selectTrack(t);
+  const st = app.status?.tracks[t];
+  const on = playing() && !app.status?.song_mode && (st?.active === s || st?.queued === s) && !st?.queued_stop;
+  if (on) {
+    await act({ type: "launch", track: t, slot: null });
+    return false;
+  }
+  if (app.status?.song_mode) await act({ type: "set_song_mode", on: false });
+  await act({ type: "launch", track: t, slot: s });
+  if (!playing()) await act({ type: "play" });
+  return true;
+}
+
+/** Play a whole row. */
+export async function playRow(s: number): Promise<void> {
+  app.section = s;
+  app.page = 0;
+  if (app.status?.song_mode) await act({ type: "set_song_mode", on: false });
+  await act({ type: "launch_scene", scene: s });
+  if (!playing()) await act({ type: "play" });
 }
 
 /** Steps of the selected pad that are on, in the bar on screen. */
@@ -208,8 +276,11 @@ export async function toggleRecord(): Promise<void> {
   if (on && !playing()) await togglePlay();
 }
 
-export async function setInstrument(spec: import("./api").InstrumentSpec): Promise<void> {
+/** Give the track another sound, in the octave where that sound sits best. */
+export async function setInstrument(spec: import("./api").InstrumentSpec, octave?: number): Promise<void> {
   await act({ type: "swap", track: app.track, instrument: spec });
+  if (octave !== undefined && track()?.kind === "melodic")
+    await act({ type: "set_octave", track: app.track, octave });
   await refreshPads();
 }
 

@@ -35,13 +35,14 @@
   const sentence = $derived.by(() => {
     if (app.note) return app.note;
     if (app.busy) return app.busy;
-    if (!app.awake) return "touch anything to start the sound";
+    if (!app.awake) return "touch to wake the sound";
     const s = app.status;
     if (s?.count_in) return `count in ${s.count_in}`;
     if (recording) return "recording · play the pads";
     if (s?.song_mode && playing()) return "playing the song";
     if (playing()) return `playing · ${(scenes[app.section]?.name ?? "").toLowerCase()}`;
-    if (app.face === "loops" && !app.open) return "touch + to begin";
+    if (app.face === "loops" && !app.open)
+      return app.project?.tracks.some((t) => t.slots.some(Boolean)) ? "click plays a loop · double click opens it" : "touch + to begin";
     return "stopped";
   });
 

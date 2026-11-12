@@ -2,8 +2,9 @@
   // Inside a track: its loop for the section on screen, as steps and pads,
   // or its sound. The way back to the loops is always top left.
   import Play from "./Play.svelte";
+  import Melodic from "./Melodic.svelte";
   import Sound from "./Sound.svelte";
-  import { app, selectTrack, selectSection, trackColor } from "../lib/app.svelte";
+  import { app, selectTrack, selectSection, trackColor, track } from "../lib/app.svelte";
 
   let { wide = false }: { wide?: boolean } = $props();
   const tracks = $derived(app.project?.tracks ?? []);
@@ -44,7 +45,9 @@
     {/if}
   </div>
   <div class="body">
-    {#if app.pane === "sound" && !wide}<Sound />{:else}<Play />{/if}
+    {#if app.pane === "sound" && !wide}<Sound />
+    {:else if track()?.kind === "melodic"}{#key app.track}<Melodic />{/key}
+    {:else}<Play />{/if}
   </div>
 </div>
 
@@ -86,7 +89,9 @@
     color: var(--fg-muted);
   }
   .tab.narrow {
-    flex: 0 1 48px;
+    flex: 1 1 32px;
+    max-width: 48px;
+    padding: 0;
     justify-content: center;
   }
   /* the selected track wears its colour as a line, not as a fill: the fill

@@ -1,7 +1,7 @@
 <script lang="ts">
   // The play face: sixteen step keys for the selected pad, and sixteen pads.
-  import { app, live, pattern, stepsOn, playhead, toggleStep, act, padPitch, track } from "../lib/app.svelte";
-  import { TICKS_PER_STEP } from "../lib/api";
+  import { app, live, pattern, stepsOn, playhead, toggleStep, setBars, act } from "../lib/app.svelte";
+  import { TICKS_PER_STEP, capture } from "../lib/api";
 
   const on = $derived(stepsOn());
   const head = $derived(playhead());
@@ -24,7 +24,7 @@
   });
 
   function down(e: PointerEvent, i: number) {
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    capture(e);
     app.pad = i;
     held[i] = true;
     live({ type: "pad_on", track: app.track, pad: i, velocity: 0.85 });
@@ -51,12 +51,6 @@
     if (i >= 0) up(i);
   }
 
-  async function setBars(b: number) {
-    if (!pat) await act({ type: "create_pattern", track: app.track, slot: app.section, bars: b });
-    else await act({ type: "set_bars", track: app.track, slot: app.section, bars: b });
-    if (app.page >= b) app.page = b - 1;
-  }
-
   // while playing, the step keys follow the bar being played
   $effect(() => {
     if (head >= 0 && bars > 1 && follow) app.page = Math.floor(head / 16);
@@ -68,22 +62,10 @@
 
 <div class="play">
   <div class="head">
-    <span class="label">steps</span>
     <span class="what">{(app.pads[app.pad]?.label ?? "").toLowerCase()}</span>
     <span class="grow"></span>
-    <span class="label">bar</span>
-    {#each Array.from({ length: bars }, (_, i) => i) as b}
-      <button
-        class="mini"
-        aria-pressed={app.page === b}
-        onclick={() => {
-          app.page = b;
-          follow = false;
-        }}>{b + 1}</button
-      >
-    {/each}
-    <span class="label">of</span>
-    {#each [1, 2, 4] as b}
+    <span class="label">bars</span>
+    {#each [1, 2, 4, 8] as b}
       <button class="mini" aria-pressed={bars === b} onclick={() => setBars(b)}>{b}</button>
     {/each}
     <button
@@ -92,6 +74,23 @@
       onclick={() => act({ type: "delete_pattern", track: app.track, slot: app.section })}>clear</button
     >
   </div>
+  {#if bars > 1}
+    <div class="head">
+      <span class="label">showing bar</span>
+      {#each Array.from({ length: bars }, (_, i) => i) as b}
+        <button
+          class="mini"
+          class:now={head >= 0 && Math.floor(head / 16) === b}
+          aria-pressed={app.page === b}
+          onclick={() => {
+            app.page = b;
+            follow = false;
+          }}>{b + 1}</button
+        >
+      {/each}
+      <button class="mini" aria-pressed={follow} onclick={() => (follow = !follow)}>follow</button>
+    </div>
+  {/if}
 
   <div class="steps" role="group" aria-label="steps">
     {#each on as lit, i}
@@ -156,6 +155,10 @@
     min-width: 24px;
     padding: 0 6px;
     border-color: var(--line);
+  }
+  /* the bar being played, when another is on screen */
+  .mini.now {
+    box-shadow: inset 0 -2px 0 var(--fg);
   }
   .steps {
     display: grid;

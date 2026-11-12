@@ -1,39 +1,30 @@
 <script lang="ts">
   // The loops face, where everything starts: tracks across, sections down.
-  // A cell is a loop in its track's colour. Touch an empty one to step in and
-  // play; touch a loop to pick it (and start it while the transport runs),
-  // touch it again to step in.
-  import { app, act, selectTrack, selectSection, openCell, playing, pattern, trackColor } from "../lib/app.svelte";
-  import { TICKS_PER_STEP, type Pattern } from "../lib/api";
+  // A cell is a loop in its track's colour. One click plays it, another
+  // stops it; a double click steps inside. An empty cell has nothing to
+  // play, so one click steps in.
+  import { app, act, selectSection, openCell, toggleCell, playRow, playing, pattern, trackColor } from "../lib/app.svelte";
+  import NotePreview from "./NotePreview.svelte";
 
   const tracks = $derived(app.project?.tracks ?? []);
   const scenes = $derived(app.project?.scenes ?? []);
   let adding = $state(false);
 
-  /** A loop as sixteenths per bar: which ones hold a note. */
-  function map(p: Pattern): boolean[] {
-    const cells = new Array<boolean>(p.bars * 16).fill(false);
-    for (const n of p.notes) {
-      const i = Math.round(n.start / TICKS_PER_STEP);
-      if (i >= 0 && i < cells.length) cells[i] = true;
-    }
-    return cells;
-  }
-
+  let last = { t: -1, s: -1, at: 0, started: false };
   async function cell(t: number, s: number) {
-    const p = pattern(t, s);
-    const same = app.track === t && app.section === s;
-    if (!p || same) return openCell(t, s);
-    app.section = s;
-    if (app.track !== t) await selectTrack(t);
-    if (!playing() || app.status?.song_mode) return;
-    const st = app.status?.tracks[t];
-    if (st?.active !== s && st?.queued !== s) await act({ type: "launch", track: t, slot: s });
-  }
-
-  async function stopTrack(e: Event, t: number) {
-    e.stopPropagation();
-    await act({ type: "launch", track: t, slot: null });
+    if (!pattern(t, s)) return openCell(t, s);
+    const now = performance.now();
+    const double = last.t === t && last.s === s && now - last.at < 350;
+    if (double) {
+      // the first click of the pair already answered: if it stopped the
+      // loop, bring it back, then step in with it playing
+      if (!last.started) await toggleCell(t, s);
+      last = { t: -1, s: -1, at: 0, started: false };
+      return openCell(t, s);
+    }
+    last = { t, s, at: now, started: false };
+    const started = await toggleCell(t, s);
+    if (last.t === t && last.s === s) last.started = started;
   }
 
   async function addTrack(kind: "drums" | "melodic") {
@@ -77,7 +68,7 @@
         class="row"
         aria-pressed={app.section === s}
         aria-label="section {scene.name}: play the row"
-        onclick={() => selectSection(s)}
+        onclick={() => playRow(s)}
       >
         {scene.name.length <= 3 ? scene.name.toLowerCase() : s + 1}
       </button>
@@ -94,22 +85,13 @@
           class:queued
           style="--id: {trackColor(t)}"
           aria-label="{t.name}, section {scene.name}{p ? (live ? ', playing' : '') : ', empty'}"
+          title={p ? "click: play or stop · double click: open" : "open"}
           onclick={() => cell(i, s)}
         >
           {#if p}
-            <span class="map" style="grid-template-rows: repeat({p.bars}, 1fr)">
-              {#each map(p) as lit}<i class:lit></i>{/each}
-            </span>
+            <span class="notes"><NotePreview pattern={p} drums={t.kind === "drums"} /></span>
             {#if live}
               <span class="sweep" style="transform: scaleX({st?.progress ?? 0})"></span>
-              <span
-                class="stop"
-                role="button"
-                tabindex="-1"
-                aria-label="stop {t.name}"
-                onclick={(e) => stopTrack(e, i)}
-                onkeydown={() => {}}
-              ></span>
             {/if}
             {#if queued}<span class="led yl blink corner"></span>{/if}
           {:else}
@@ -149,13 +131,15 @@
   .grid {
     display: grid;
     gap: 4px;
-    grid-auto-rows: minmax(52px, 84px);
-    grid-template-rows: 32px;
+    grid-auto-rows: minmax(40px, 56px);
+    grid-template-rows: 36px;
     flex: 0 1 auto;
   }
   .th {
     position: relative;
-    height: 32px;
+    height: 36px;
+    white-space: normal;
+    line-height: 14px;
     padding: 0 4px;
     display: flex;
     align-items: center;
@@ -188,7 +172,7 @@
   }
   .tname {
     overflow: hidden;
-    text-overflow: ellipsis;
+    max-height: 28px;
   }
   .meter {
     position: absolute;
@@ -234,20 +218,10 @@
     border-style: dashed;
     border-color: var(--yl);
   }
-  .map {
-    display: grid;
-    grid-template-columns: repeat(16, 1fr);
-    gap: 1px;
-    width: 100%;
-    height: 100%;
-    min-height: 20px;
-  }
-  .map i {
-    background: color-mix(in srgb, var(--id) 16%, transparent);
-    min-height: 2px;
-  }
-  .map i.lit {
-    background: var(--id);
+  .notes {
+    position: absolute;
+    inset: 0;
+    color: var(--id);
   }
   /* the part of the loop already played, as a wash that grows with it */
   .sweep {
@@ -256,16 +230,6 @@
     background: color-mix(in srgb, var(--id) 22%, transparent);
     transform-origin: left;
     pointer-events: none;
-  }
-  .stop {
-    position: absolute;
-    right: 4px;
-    bottom: 4px;
-    width: 14px;
-    height: 14px;
-    background: var(--fg);
-    border: 3px solid var(--bg);
-    box-sizing: content-box;
   }
   .corner {
     position: absolute;

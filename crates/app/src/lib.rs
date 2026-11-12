@@ -440,9 +440,9 @@ fn project(c: &Controller, session: &Session) -> Result<Value, String> {
 fn catalog() -> Value {
     json!({
         "scales": ScaleKind::ALL.iter().map(|k| json!({ "id": k, "label": k.label() })).collect::<Vec<_>>(),
-        "kits": DrumKitId::ALL.iter().map(|k| json!({ "id": k, "label": k.label() })).collect::<Vec<_>>(),
-        "presets": SynthPreset::ALL.iter().map(|k| json!({ "id": k, "label": k.label() })).collect::<Vec<_>>(),
-        "textures": TextureKind::ALL.iter().map(|k| json!({ "id": k, "label": k.label() })).collect::<Vec<_>>(),
+        "kits": DrumKitId::ALL.iter().map(|k| json!({ "id": k, "label": k.label(), "category": k.category() })).collect::<Vec<_>>(),
+        "presets": SynthPreset::ALL.iter().map(|k| json!({ "id": k, "label": k.label(), "category": k.category(), "open": k.zoned().is_none() && k.sampled().is_none(), "octave": k.home_octave() })).collect::<Vec<_>>(),
+        "textures": TextureKind::ALL.iter().map(|k| json!({ "id": k, "label": k.label(), "category": k.category(), "octave": 3 })).collect::<Vec<_>>(),
         "grooves": GrooveId::ALL.iter().map(|g| json!({ "id": g, "label": g.label(), "kind": g.kind() })).collect::<Vec<_>>(),
         "macros": MacroParam::ALL.iter().map(|k| json!({ "id": k, "label": k.label() })).collect::<Vec<_>>(),
         "meters": mjolnir_engine::model::Meter::COMMON,
