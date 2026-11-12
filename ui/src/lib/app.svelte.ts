@@ -504,6 +504,7 @@ export async function saveFile(): Promise<void> {
   const name = fileName();
   await engine
     .deliver([{ name: `${name}.mjolnir`, data: r.json, type: "application/json" }], name)
+    .then((where) => where && (app.note = where))
     .catch((e) => (app.note = String(e)));
 }
 
@@ -538,7 +539,8 @@ export async function exportSong(midi = false): Promise<void> {
     const files: engine.OutFile[] = [];
     if (wav) files.push({ name: `${name}.wav`, data: wav, type: "audio/wav" });
     if (mid) files.push({ name: `${name}.mid`, data: mid, type: "audio/midi" });
-    await engine.deliver(files, name);
+    const where = await engine.deliver(files, name);
+    if (where) app.note = where;
   } catch (e) {
     app.note = String(e);
   }

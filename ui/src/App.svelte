@@ -9,7 +9,22 @@
   import Mix from "./components/Mix.svelte";
   import Punch from "./components/Punch.svelte";
   import Help from "./components/Help.svelte";
-  import { app, act, start, togglePlay, toggleRecord, playing, engine, type Face } from "./lib/app.svelte";
+  import {
+    app,
+    act,
+    start,
+    togglePlay,
+    toggleRecord,
+    playing,
+    engine,
+    openText,
+    openFile,
+    saveFile,
+    newSet,
+    exportSong,
+    addSample,
+    type Face,
+  } from "./lib/app.svelte";
 
   const FACES: Face[] = ["loops", "song", "mix", "set"];
   let wide = $state(false);
@@ -29,6 +44,52 @@
     const wake = () => engine.wake();
     addEventListener("pointerdown", wake, true);
     addEventListener("keydown", wake, true);
+
+    // a set handed over by the system: a desktop app's "open with", an
+    // installed web app's file handler, or a file dropped on the window
+    addEventListener("mjolnir-open", (e) => void openText((e as CustomEvent<string>).detail));
+    const queue = (window as { launchQueue?: { setConsumer: (f: (p: { files: { getFile: () => Promise<File> }[] }) => void) => void } })
+      .launchQueue;
+    queue?.setConsumer(async (p) => {
+      const file = await p.files[0]?.getFile();
+      if (file) void openText(await file.text());
+    });
+    addEventListener("dragover", (e) => e.preventDefault());
+    addEventListener("drop", async (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      if (/\.(mjolnir|yggdrasil|tinydaw|json)$/i.test(file.name)) return void openText(await file.text());
+      // anything else is taken for sound: it becomes a new track
+      try {
+        const audio = await engine.decode(await file.arrayBuffer());
+        await addSample(audio, "melodic", file.name.replace(/\.[^.]+$/, "").slice(0, 24));
+      } catch {
+        app.note = "that file is neither a set nor a sound";
+      }
+    });
+    // the Android app: its back button, and leaving it
+    const host = window as { mjolnirBack?: () => boolean; mjolnirPause?: () => void };
+    host.mjolnirBack = () => {
+      if (app.help) app.help = false;
+      else if (app.open) app.open = false;
+      else if (app.face !== "loops") app.face = "loops";
+      else return false;
+      return true;
+    };
+    host.mjolnirPause = () => {
+      if (playing()) void act({ type: "stop" });
+    };
+    // the menu of a desktop app
+    addEventListener("mjolnir-menu", (e) => {
+      const what = (e as CustomEvent<string>).detail;
+      if (what === "new") void newSet();
+      else if (what === "open") void openFile();
+      else if (what === "save") void saveFile();
+      else if (what === "export") void exportSong(true);
+      else if (what === "undo" || what === "redo") void act({ type: what });
+      else if (what === "help") app.help = true;
+    });
   });
 
   const scenes = $derived(app.project?.scenes ?? []);

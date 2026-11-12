@@ -127,7 +127,26 @@ async function hostSaver(): Promise<HostSaver | null> {
  * embedding host only takes a few formats: there a project goes as `.json`
  * and audio travels inside one `.zip`.
  */
-export async function deliver(files: OutFile[], bundle: string): Promise<void> {
+export async function deliver(files: OutFile[], bundle: string): Promise<string | void> {
+  // inside the Android app the device saves the file, in pieces
+  const device = (window as { MjolnirHost?: { begin(n: string, t: string): void; append(b: string): void; finish(): string } })
+    .MjolnirHost;
+  if (device) {
+    let where = "";
+    for (const f of files) {
+      const bytes = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+      device.begin(f.name, f.type);
+      for (let i = 0; i < bytes.length; i += 0x60000) {
+        let piece = "";
+        const part = bytes.subarray(i, i + 0x60000);
+        for (let k = 0; k < part.length; k += 0x8000) piece += String.fromCharCode(...part.subarray(k, k + 0x8000));
+        device.append(btoa(piece));
+      }
+      where = device.finish();
+      if (!where) throw "the file could not be saved on this device";
+    }
+    return `saved to ${where.replace(/\/[^/]*$/, "")}`;
+  }
   const host = await hostSaver();
   if (!host) {
     for (const f of files) {

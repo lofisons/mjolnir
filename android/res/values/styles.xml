@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ink everywhere: the window, the bars above and below it -->
+    <style name="Mjolnir" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">#0b0b0a</item>
+        <item name="android:navigationBarColor">#0b0b0a</item>
+        <item name="android:colorBackground">#0b0b0a</item>
+    </style>
+</resources>

@@ -1,0 +1,75 @@
+{
+  "name": "mjolnir-desktop",
+  "productName": "Mjolnir",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An open instrument for sketching beats: pads, steps, loops and a small timeline.",
+  "author": "lofisons",
+  "license": "MIT",
+  "homepage": "https://github.com/lofisons/mjolnir",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "pe-library": "^2.0.1",
+    "resedit": "^3.1.0"
+  },
+  "build": {
+    "appId": "com.lofisons.mjolnir",
+    "productName": "Mjolnir",
+    "copyright": "MIT, lofisons",
+    "files": [
+      "main.cjs",
+      "app/**",
+      "build/icon.png"
+    ],
+    "directories": {
+      "output": "../release/desktop",
+      "buildResources": "build"
+    },
+    "fileAssociations": [
+      {
+        "ext": "mjolnir",
+        "name": "Mjolnir set",
+        "role": "Editor"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Mjolnir-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Mjolnir-${version}-portable.${ext}"
+    },
+    "appImage": {
+      "artifactName": "Mjolnir-${version}-${arch}.${ext}"
+    },
+    "publish": null,
+    "asar": true,
+    "afterPack": "./after-pack.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lofisons/mjolnir.git"
+  }
+}
