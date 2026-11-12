@@ -46,7 +46,7 @@ def c3(name):
 
 
 def piano(i):
-    return f"Keys/Upright Piano/Player_dyn1_rr1_{i:03d}.wav", 21 + 2 * i
+    return f"Keys/Upright Piano/Player_dyn2_rr1_{i:03d}.wav", 21 + 2 * i
 
 
 # name -> settings and zones (file, MIDI note; None = measure it).

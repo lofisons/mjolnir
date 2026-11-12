@@ -19,7 +19,7 @@ They are built by [`tools/build_stem_sounds.py`](tools/build_stem_sounds.py) fro
 
 ## Real instruments
 
-Soft piano, music box, harp, strings, quiet organ, flute and contrabass are a few recorded notes each from **VS Chamber Orchestra: Community Edition** (CC0, see below): the upright piano at its softest, a glockenspiel, the harp, the cello and viola sections, the organ's quiet manual, the flute and a bowed double bass.
+Soft piano, music box, harp, strings, quiet organ, flute and contrabass are a few recorded notes each from **VS Chamber Orchestra: Community Edition** (CC0, see below): the upright piano played gently, a glockenspiel, the harp, the cello and viola sections, the organ's quiet manual, the flute and a bowed double bass.
 
 [`tools/build_instruments.py`](tools/build_instruments.py) fetches only the notes it needs and builds each instrument: a low-pass darkens it, every note is tuned and levelled, and held instruments get a cross-faded loop. One mono 16-bit 22.05 kHz file per instrument, with a small JSON map of its notes beside it.
 

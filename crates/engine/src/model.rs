@@ -640,7 +640,7 @@ pub enum SynthPreset {
     SilentSub,
     /// One bass note sampled from a lofisons modular session.
     SessionBass,
-    /// A real upright piano played softly and darkened (CC0 recordings).
+    /// A real upright piano, darkened (CC0 recordings).
     SoftPiano,
     /// A glockenspiel, rung like a music box.
     MusicBox,
