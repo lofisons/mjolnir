@@ -86,6 +86,19 @@ export async function act<T = unknown>(action: Action): Promise<T | undefined> {
   }
 }
 
+/**
+ * One message from an agent (the Model Context Protocol), carried out by the
+ * engine; the screen then follows whatever it changed. Answers the reply, or
+ * null when the message asked for none.
+ */
+export async function agent(message: string): Promise<string | null> {
+  engine.wake();
+  const { reply } = await engine.call<{ reply: string | null }>({ type: "mcp", message });
+  adopt(await engine.call({ type: "get_project" }));
+  await refreshPads();
+  return reply;
+}
+
 /** A gesture that needs no answer: a pad, a knob while it turns. */
 export function live(action: Action): void {
   engine.wake();

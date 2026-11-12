@@ -12,6 +12,7 @@
   import Help from "./components/Help.svelte";
   import Export from "./components/Export.svelte";
   import {
+    agent,
     app,
     act,
     start,
@@ -70,7 +71,9 @@
       }
     });
     // the Android app: its back button, and leaving it
-    const host = window as { mjolnirBack?: () => boolean; mjolnirPause?: () => void };
+    const host = window as { mjolnirBack?: () => boolean; mjolnirPause?: () => void; mjolnirMcp?: (message: string) => Promise<string | null> };
+    // a host that lets an agent in (the desktop app) hands its messages over here
+    host.mjolnirMcp = agent;
     host.mjolnirBack = () => {
       if (app.help) app.help = false;
       else if (app.open) app.open = false;

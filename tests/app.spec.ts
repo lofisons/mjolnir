@@ -290,3 +290,31 @@ test("one loop of a playing row stops at the bar; a second touch stops it at onc
   await page.waitForTimeout(3500);
   await expect(page.locator(".cell.live")).toHaveCount(3);
 });
+
+test("an agent's messages write music the screen follows", async ({ page }) => {
+  // the door a host opens for the Model Context Protocol
+  const rpc = (method: string, params: unknown = {}) =>
+    page.evaluate(async ([m, p]) => JSON.parse((await (window as unknown as { mjolnirMcp: (s: string) => Promise<string> }).mjolnirMcp(JSON.stringify({ jsonrpc: "2.0", id: 1, method: m, params: p })))!), [method, params] as const);
+  const tool = async (name: string, args: unknown = {}) => {
+    const r = (await rpc("tools/call", { name, arguments: args })).result;
+    expect(r.isError, r.content[0].text).toBe(false);
+    return r.content[0].text as string;
+  };
+  expect((await rpc("initialize", { protocolVersion: "2025-06-18" })).result.serverInfo.name).toBe("mjolnir");
+  expect((await rpc("tools/list")).result.tools.length).toBeGreaterThan(15);
+  await tool("new_set", { name: "From an agent", bpm: 90 });
+  await expect(page.locator(".th .tname")).toHaveCount(0);
+  await tool("add_track", { sound: "kit:shadow" });
+  await tool("add_track", { sound: "macro:solina", name: "Strings" });
+  await expect(page.locator(".th .tname")).toHaveText(["shadow", "strings"]);
+  await tool("drum_groove", { track: 0, section: "A", groove: "boom_bap" });
+  await tool("write_loop", { track: 1, section: "A", bars: 2, notes: [{ pitch: "A3", start: 0, length: 8 }, { pitch: "C4", start: 0, length: 8 }] });
+  await expect(page.locator(".cell.filled")).toHaveCount(2);
+  await tool("play", { section: "A" });
+  await expect(page.locator(".cell.live")).toHaveCount(2);
+  await expect(page.locator(".screen .br")).toContainText("90");
+  await tool("stop");
+  // and a person takes it back with the same undo
+  await page.getByRole("button", { name: "undo" }).click();
+  await expect(page.locator(".cell.filled")).toHaveCount(1);
+});

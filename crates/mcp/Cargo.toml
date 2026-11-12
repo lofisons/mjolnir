@@ -1,0 +1,15 @@
+[package]
+name = "mjolnir-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Mjolnir for an agent: a Model Context Protocol server over stdio, working on a set as a file"
+
+[[bin]]
+name = "mjolnir-mcp"
+path = "src/main.rs"
+
+[dependencies]
+mjolnir-engine = { path = "../engine" }
+mjolnir-app = { path = "../app" }
+serde_json = "1"

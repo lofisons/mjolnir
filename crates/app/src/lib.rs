@@ -2,6 +2,8 @@
 //! JSON out. The browser build, the desktop shell and the plugin all drive the
 //! engine through this one door.
 
+pub mod mcp;
+
 use mjolnir_engine::controller::Controller;
 use mjolnir_engine::engine::EngineEndpoints;
 use mjolnir_engine::grooves::GrooveId;
@@ -18,14 +20,26 @@ use serde_json::{json, Value};
 pub struct App {
     pub ctrl: Controller,
     session: Session,
+    /// While set, actions do not open undo steps of their own: whoever set it
+    /// opened one for the whole gesture (an agent's tool is one step).
+    grouped: bool,
 }
 
 impl App {
+    /// Run `f` as one step of undo, however many actions it sends.
+    pub fn as_one_step<R>(&mut self, f: impl FnOnce(&mut App) -> R) -> R {
+        self.ctrl.checkpoint();
+        self.grouped = true;
+        let out = f(self);
+        self.grouped = false;
+        out
+    }
+
     pub fn new(endpoints: EngineEndpoints, sample_rate: f32) -> App {
         let mut ctrl = Controller::new(endpoints, sample_rate);
         ctrl.new_project();
         let session = Session::new(ctrl.project.clone(), std::path::PathBuf::new());
-        App { ctrl, session }
+        App { ctrl, session, grouped: false }
     }
 
     /// Drain engine events and return the transport and meter status.
@@ -401,6 +415,12 @@ pub enum Action {
     Midi {
         bytes: Vec<u8>,
     },
+    /// One Model Context Protocol message from an agent (see `mcp`). The
+    /// answer is `{"reply": "<message>"}`, or `{"reply": null}` when the
+    /// message asked for none.
+    Mcp {
+        message: String,
+    },
 }
 
 impl Action {
@@ -413,6 +433,7 @@ impl Action {
                 | Action::SetMetronome { .. }
                 | Action::SetVelocity { .. }
                 | Action::Info
+                | Action::Mcp { .. }
                 | Action::NewProject
                 | Action::OpenDemo
                 | Action::Play
@@ -490,8 +511,13 @@ impl App {
     /// Execute one UI action and answer with JSON: the project after a change,
     /// `null` after a live gesture.
     pub fn handle(&mut self, action: Action) -> Result<Value, String> {
-        let App { ctrl: c, session } = self;
-        if action.undoable() {
+        // an agent's message is carried out as actions of its own
+        if let Action::Mcp { message } = &action {
+            let reply = mcp::handle(self, &mut mcp::NoHost, message);
+            return Ok(json!({ "reply": reply }));
+        }
+        let App { ctrl: c, session, grouped } = self;
+        if action.undoable() && !*grouped {
             c.checkpoint();
         }
         match action {
@@ -554,6 +580,8 @@ impl App {
                 c.punch(kind, on);
                 return Ok(Value::Null);
             }
+            // answered above, before the controller was borrowed
+            Action::Mcp { .. } => return Ok(Value::Null),
             Action::Midi { bytes } => {
                 c.midi_message(&bytes);
                 return Ok(Value::Null);

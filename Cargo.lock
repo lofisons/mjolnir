@@ -496,6 +496,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mjolnir-mcp"
+version = "0.2.0"
+dependencies = [
+ "mjolnir-app",
+ "mjolnir-engine",
+ "serde_json",
+]
+
+[[package]]
 name = "mjolnir-plugin"
 version = "0.2.0"
 dependencies = [

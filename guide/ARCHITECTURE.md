@@ -22,6 +22,7 @@
 |---|---|---|
 | Browser, installed web app | WebAssembly in an AudioWorklet; a second instance in a worker bounces audio | downloads, a file picker, IndexedDB for sets, Web MIDI |
 | Desktop (`desktop/`) | the same, inside Electron's Chromium, served from its own `app://` scheme | a menu, file association, save dialogs |
+| An agent (`crates/mcp`, or the desktop app's Agent menu) | natively with no window, or as messages handed to the app's engine | Model Context Protocol tools over the same actions; files and bounces when it has a disk |
 | A DAW (`crates/plugin`) | natively: the engine on the DAW's audio thread, a helper thread for everything that allocates | notes, tempo, transport, parameters and their automation, state |
 | Android (`android/`) | the same, inside a WebView, served from the package at `https://mjolnir.app` | saving to Downloads, opening `.mjolnir` files, the microphone, the back button |
 

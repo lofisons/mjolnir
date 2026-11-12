@@ -34,6 +34,10 @@ Every package is built by one script, on one Linux machine: see [INSTALL.md](INS
 
 The manual is in [guide/GUIDE.md](guide/GUIDE.md).
 
+## With an agent
+
+Mjolnir speaks the Model Context Protocol: an agent can write loops, shape sounds and arrange a song, inside the desktop app while you listen or on its own as a file. See [guide/AGENTS.md](guide/AGENTS.md).
+
 ## How it is made
 
 | Path | What |
@@ -45,6 +49,7 @@ The manual is in [guide/GUIDE.md](guide/GUIDE.md).
 | `desktop` | The desktop shell (Electron) around the same web app. |
 | `android` | The Android shell (a WebView), built by hand with no Android Studio. |
 | `tools` | The scripts that build the sounds, the demos and the icon. |
+| `crates/mcp` | `mjolnir-mcp`: the instrument with no window, for an agent (Model Context Protocol over stdio). The tools themselves are in `crates/app/src/mcp.rs`. |
 | `crates/plugin` | The sounds as a VST 3 instrument: one track of the engine, played by a host's notes. |
 | `site` | The front page of the public site. |
 | `docs` | The built site, ready for any static host: the front page, and the web app under `app/`. |

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- An agent can make music in Mjolnir through the Model Context Protocol: write loops, build drum parts, shape synths and kits, arrange a song. In the desktop app (**Agent → Let an agent play**), on the set that is open; or as `mjolnir-mcp`, with no window, on a set as a file, with WAV and MIDI out. See [guide/AGENTS.md](guide/AGENTS.md).
+- A synth sound can be renamed.
+
 ## 0.2.0
 
 - A VST 3 instrument for Windows, macOS and Linux: the 45 sounds, the seven knobs, tape, vinyl and warmth, and the ready-made drum loops in time with the host's song.

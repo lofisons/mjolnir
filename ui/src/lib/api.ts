@@ -257,6 +257,7 @@ export type Action =
   | { type: "set_bars"; track: number; slot: number; bars: number }
   | { type: "quantize"; track: number; slot: number }
   | { type: "set_notes"; track: number; slot: number; notes: Note[] }
+  | { type: "mcp"; message: string }
   | { type: "clear_pattern"; track: number; slot: number }
   | { type: "rename_pattern"; track: number; slot: number; name: string }
   | { type: "load_groove"; track: number; slot: number; groove: string }
