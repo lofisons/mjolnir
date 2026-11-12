@@ -311,12 +311,13 @@ footer .wrap > :first-child { margin-right: auto; }
 </footer>
 
 <script>
-// Where the packages live. One line to change when they move.
-const DOWNLOADS = "https://github.com/lofisons/mjolnir/releases/latest";
+// Where the packages live: the files of a GitHub release. One line to change when they move.
 const VERSION = "@VERSION@";
+const DOWNLOADS = "https://github.com/lofisons/mjolnir/releases/download/v" + VERSION + "/";
 for (const a of document.querySelectorAll("[data-dl]")) {
-  a.href = DOWNLOADS;
-  a.textContent = "Mjolnir-" + VERSION + "-" + a.dataset.dl + ".zip";
+  const name = "Mjolnir-" + VERSION + "-" + a.dataset.dl + ".zip";
+  a.href = DOWNLOADS + name;
+  a.textContent = name;
 }
 
 // the language: the visitor's, then what they chose

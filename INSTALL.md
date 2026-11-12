@@ -14,7 +14,7 @@ Open the web app. To keep it like an app:
 
 After the first visit it opens with no network.
 
-To host it yourself, serve the `docs/` folder of this repository from any static host: it is the whole public site, with a front page and the app under `app/` (the `web` zip is the app alone). On GitHub: Settings → Pages → *Deploy from a branch* → `main`, `/docs`. For a domain of your own, put its name in `site/CNAME` and rebuild. The front page links its downloads to one address, `DOWNLOADS` at the bottom of `site/index.html`: by default the latest GitHub release, where the zips need to be uploaded.
+To host it yourself, serve the `docs/` folder of this repository from any static host: it is the whole public site, with a front page and the app under `app/` (the `web` zip is the app alone). On GitHub: Settings → Pages → *Deploy from a branch* → `main`, `/docs`. For a domain of your own, put its name in `site/CNAME` and rebuild. The front page links each download to a file of the GitHub release `v<version>` (`DOWNLOADS`, at the bottom of `site/index.html`): publish that release with the zips of `release/` attached and the links work, with nothing else to host. The official site, lofisons.com/mjolnir, is built from the `lofisons/lofisons` repository, which carries a copy of the app.
 
 ## Linux
 
