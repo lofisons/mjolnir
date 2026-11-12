@@ -37,7 +37,9 @@ Hold a lit step (or right-click it) to see its **level**, its **chance** of soun
 
 ![The piano roll](img/desk-roll.jpg)
 
-The piano roll shows only the notes of the key. Click to write a note of the chosen length; drag a note to move it, drag its right edge to stretch it, click it to pick it (its level, chance and repeats appear), double click to remove it.
+The piano roll shows only the notes of the key. Click to write a note of the chosen length; drag a note to move it, drag its right edge to stretch it, click it to pick it (its level, chance and repeats appear), double click to remove it. On a touch screen a tap writes; a finger that travels scrolls the sheet and writes nothing.
+
+**move** carries the whole loop: an octave lower or higher, or one note of the key down or up. **harmony** doubles every note at an interval of the key (a third, a fourth, a fifth, a sixth, an octave), above or below; use it again to stack a chord. Each is one step of undo.
 
 Below it, a keyboard or pads of the key's notes. With **chords** on, every note you write or play is the chord of the key built on it, and the pads show its name.
 

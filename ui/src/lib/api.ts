@@ -256,6 +256,7 @@ export type Action =
   | { type: "remove_note"; track: number; slot: number; start: number; pitch: number }
   | { type: "set_bars"; track: number; slot: number; bars: number }
   | { type: "quantize"; track: number; slot: number }
+  | { type: "set_notes"; track: number; slot: number; notes: Note[] }
   | { type: "clear_pattern"; track: number; slot: number }
   | { type: "rename_pattern"; track: number; slot: number; name: string }
   | { type: "load_groove"; track: number; slot: number; groove: string }
@@ -313,6 +314,38 @@ export function chordOn(scale: Scale, pitch: number, kind: ChordKind): number[] 
   if (i < 0) return [pitch];
   const steps = { triad: [0, 2, 4], seventh: [0, 2, 4, 6], sus2: [0, 1, 4], sus4: [0, 3, 4], power: [0, 4] }[kind];
   return steps.map((d) => notes[i + d]).filter((p) => p !== undefined);
+}
+
+/** `pitch` moved by `degrees` notes of the key; a note outside the key keeps its distance to the one below it. */
+export function shiftInKey(scale: Scale, pitch: number, degrees: number): number {
+  const notes = scalePitches(scale, 0, 127);
+  let i = notes.length - 1;
+  while (i > 0 && notes[i] > pitch) i--;
+  const to = notes[i + degrees];
+  return to === undefined ? -1 : to + (pitch - notes[i]);
+}
+
+/** The intervals a line can be doubled at: notes of the key to climb, and the semitones that stands for outside a seven-note key. */
+export const INTERVALS: { name: string; degrees: number; semitones: number }[] = [
+  { name: "3rd", degrees: 2, semitones: 4 },
+  { name: "4th", degrees: 3, semitones: 5 },
+  { name: "5th", degrees: 4, semitones: 7 },
+  { name: "6th", degrees: 5, semitones: 9 },
+  { name: "oct", degrees: 7, semitones: 12 },
+];
+
+/** The note an interval above (or below) `pitch`, kept inside the key. */
+export function intervalFrom(scale: Scale, pitch: number, interval: (typeof INTERVALS)[number], below: boolean): number {
+  const sign = below ? -1 : 1;
+  if (interval.semitones === 12) return pitch + 12 * sign;
+  const size = (SCALES[scale.kind] ?? SCALES.chromatic).length;
+  if (size === 7) return shiftInKey(scale, pitch, interval.degrees * sign);
+  // other keys: the plain interval, pulled to the nearest note of the key
+  const want = pitch + interval.semitones * sign;
+  const notes = scalePitches(scale, 0, 127);
+  let best = -1;
+  for (const n of notes) if (best < 0 || Math.abs(n - want) < Math.abs(best - want)) best = n;
+  return best;
 }
 
 /** Hold a pointer on the element it went down on, where the browser allows it. */

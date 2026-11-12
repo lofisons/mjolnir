@@ -297,6 +297,12 @@ pub enum Action {
         track: usize,
         slot: usize,
     },
+    /// Every note of the loop, rewritten together (transpose, harmonise).
+    SetNotes {
+        track: usize,
+        slot: usize,
+        notes: Vec<Note>,
+    },
     ClearPattern {
         track: usize,
         slot: usize,
@@ -747,6 +753,7 @@ impl App {
             }
             Action::SetBars { track, slot, bars } => c.set_pattern_bars(track, slot, bars)?,
             Action::Quantize { track, slot } => c.quantize_pattern(track, slot)?,
+            Action::SetNotes { track, slot, notes } => c.set_pattern_notes(track, slot, notes)?,
             Action::ClearPattern { track, slot } => c.clear_pattern(track, slot)?,
             Action::RenamePattern { track, slot, name } => c.rename_pattern(track, slot, name)?,
             Action::LoadGroove {

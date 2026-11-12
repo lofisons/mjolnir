@@ -61,12 +61,28 @@
     }, 220);
   }
 
-  async function write(e: PointerEvent) {
-    if (e.target !== e.currentTarget) return;
+  // ---- writing a note: only a touch that stays put. A finger that travels is
+  // scrolling the sheet, and the browser says so by cancelling the pointer.
+  const TAP_SLOP = 8;
+  let tap: { id: number; x: number; y: number; left: number; top: number; step: number; row: number } | null = null;
+
+  function gridDown(e: PointerEvent) {
+    if (e.target !== e.currentTarget || (e.pointerType === "mouse" && e.button !== 0)) return;
     const { step, row } = at(e, e.currentTarget as Element);
-    const pitches = spell(rows[row]);
+    tap = { id: e.pointerId, x: e.clientX, y: e.clientY, left: box.scrollLeft, top: box.scrollTop, step, row };
+  }
+  function gridMove(e: PointerEvent) {
+    if (tap && e.pointerId === tap.id && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > TAP_SLOP) tap = null;
+  }
+  async function gridUp(e: PointerEvent) {
+    const held = tap;
+    tap = null;
+    if (!held || e.pointerId !== held.id) return;
+    if (Math.hypot(e.clientX - held.x, e.clientY - held.y) > TAP_SLOP) return;
+    if (Math.abs(box.scrollLeft - held.left) > 2 || Math.abs(box.scrollTop - held.top) > 2) return;
+    const pitches = spell(rows[held.row]);
     blip(pitches);
-    await writeNote(pitches, step, Math.min(app.noteLen, steps - step));
+    await writeNote(pitches, held.step, Math.min(app.noteLen, steps - held.step));
   }
 
   // ---- moving and stretching a note
@@ -120,7 +136,7 @@
   const shown = (n: Note) => (drag && drag.note === n ? { ...n, start: drag.start, length: drag.length, pitch: drag.pitch } : n);
 </script>
 
-<div class="roll" bind:this={box} style="--id: {trackColor(t)}">
+<div class="roll" bind:this={box} onscroll={() => (tap = null)} style="--id: {trackColor(t)}">
   <div class="sheet" style="height: {rows.length * ROW}px; width: {34 + steps * stepW}px">
     <div class="names">
       {#each rows as p}
@@ -132,7 +148,11 @@
       role="application"
       aria-label="notes of the loop"
       style="background-size: {stepW}px {ROW}px, {stepW * 4}px 100%, {stepW * 16}px 100%"
-      onpointerdown={write}
+      onpointerdown={gridDown}
+      onpointermove={gridMove}
+      onpointerup={gridUp}
+      onpointercancel={() => (tap = null)}
+      onpointerleave={() => (tap = null)}
     >
       {#each pat?.notes ?? [] as n}
         {@const v = shown(n)}
@@ -192,7 +212,7 @@
   .grid {
     position: relative;
     flex: 1;
-    touch-action: pan-y;
+    touch-action: pan-x pan-y;
     cursor: crosshair;
     /* a hairline under every row, a line on every beat, a stronger one on every bar */
     background-image:

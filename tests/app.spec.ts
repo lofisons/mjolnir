@@ -212,3 +212,61 @@ test("the help sheet opens on ? and closes on escape", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "how to play" })).toHaveCount(0);
 });
+
+test("a finger that scrolls the roll writes nothing; a tap still does", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "touch only");
+  await page.locator(".cell").nth(4 * 5 + 3).click();
+  await expect(page.locator(".sheet")).toBeVisible();
+  const box = page.locator(".sheet").locator("..");
+  const roll = (await box.boundingBox())!;
+  const cdp = await page.context().newCDPSession(page);
+  const x = roll.x + roll.width * 0.5;
+  const drag = async (from: number, to: number) => {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: from }] });
+    for (let i = 1; i <= 8; i++) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: from + ((to - from) * i) / 8 }] });
+      await page.waitForTimeout(16);
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  };
+  const before = await box.evaluate((el) => el.scrollTop);
+  await drag(roll.y + roll.height - 20, roll.y + 20);
+  await drag(roll.y + 20, roll.y + roll.height - 30);
+  await drag(roll.y + roll.height - 20, roll.y + 30);
+  await page.waitForTimeout(300);
+  expect(await box.evaluate((el) => el.scrollTop)).not.toBe(before);
+  await expect(page.locator(".sheet .note")).toHaveCount(0);
+  await page.touchscreen.tap(x, roll.y + 40);
+  await expect(page.locator(".sheet .note")).toHaveCount(1);
+});
+
+test("a loop is carried to another octave or note, and doubled at an interval", async ({ page }) => {
+  await page.locator(".cell").nth(4 * 5 + 3).click();
+  await expect(page.locator(".sheet")).toBeVisible();
+  const roll = (await page.locator(".sheet").locator("..").boundingBox())!;
+  await page.mouse.click(roll.x + 60, roll.y + 30);
+  await page.mouse.click(roll.x + roll.width * 0.6, roll.y + 66);
+  const names = () => page.locator(".sheet .note").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")!.split(" ")[0]).sort());
+  await expect(page.locator(".sheet .note")).toHaveCount(2);
+  const first = await names();
+  await page.getByRole("button", { name: "move", exact: true }).click();
+  await page.getByRole("button", { name: "octave lower" }).click();
+  await expect.poll(names).toEqual(first.map((n) => n.replace(/-?\d+$/, (o) => String(Number(o) - 1))).sort());
+  await page.getByRole("button", { name: "octave higher" }).click();
+  await expect.poll(names).toEqual(first);
+  await page.getByRole("button", { name: "note higher" }).click();
+  await expect.poll(names).not.toEqual(first);
+  await page.getByRole("button", { name: "note lower" }).click();
+  await expect.poll(names).toEqual(first);
+  await page.getByRole("button", { name: "harmony", exact: true }).click();
+  await page.getByRole("button", { name: "3rd", exact: true }).click();
+  await expect(page.locator(".sheet .note")).toHaveCount(4);
+  // a third on the thirds stacks a triad; one undo takes a whole harmony away
+  await page.getByRole("button", { name: "3rd", exact: true }).click();
+  await expect(page.locator(".sheet .note")).toHaveCount(6);
+  await page.getByRole("button", { name: "below" }).click();
+  await page.getByRole("button", { name: "oct", exact: true }).click();
+  await expect(page.locator(".sheet .note")).toHaveCount(12);
+  await page.getByRole("button", { name: "undo" }).click();
+  await expect(page.locator(".sheet .note")).toHaveCount(6);
+});

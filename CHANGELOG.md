@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The piano roll writes a note only on a tap: a finger that scrolls the sheet, up, down or sideways, leaves it untouched.
+- **move** carries every note of a loop to another octave or another note of the key.
+- **harmony** doubles a loop at a third, fourth, fifth, sixth or octave of the key, above or below.
+
 ## 0.1.0
 
 The first Mjolnir.

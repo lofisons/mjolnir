@@ -1071,6 +1071,23 @@ impl Controller {
         self.edit_pattern(track, slot, |p| p.quantize(TICKS_PER_STEP, 1.0, bar))
     }
 
+    /// Replace every note of a loop at once: one step to undo, however many notes changed.
+    pub fn set_pattern_notes(
+        &mut self,
+        track: usize,
+        slot: usize,
+        mut notes: Vec<Note>,
+    ) -> Result<(), String> {
+        let bar = self.project.bar_ticks();
+        self.edit_pattern(track, slot, |p| {
+            let end = p.bars.max(1) * bar;
+            notes.retain(|n| n.pitch <= 127 && n.start < end && n.length > 0);
+            notes.sort_by_key(|n| (n.start, n.pitch));
+            notes.dedup_by_key(|n| (n.start, n.pitch));
+            p.notes = notes;
+        })
+    }
+
     pub fn clear_pattern(&mut self, track: usize, slot: usize) -> Result<(), String> {
         self.edit_pattern(track, slot, |p| {
             p.notes.clear();
