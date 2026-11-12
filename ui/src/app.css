@@ -1,0 +1,156 @@
+/* VSGARD, Product layer: Paper Mono, ink or drafting paper, hairlines, square
+   corners, one grain. Only role tokens below this block. */
+
+@font-face {
+  font-family: "Paper Mono";
+  src: url("./assets/fonts/PaperMono-VariableFont_wght.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #0b0b0a;
+  --bg-subtle: #171716;
+  --fg: #ededea;
+  --fg-muted: #a1a19b;
+  --fg-faint: #4a4a46;
+  --line: rgba(237, 237, 234, 0.15);
+  --edge: rgba(237, 237, 234, 0.38);
+  --hover: rgba(237, 237, 234, 0.07);
+  --selected: rgba(237, 237, 234, 0.12);
+  --pressed: rgba(237, 237, 234, 0.2);
+  --rd: #ea8a8c;
+  --gr: #a3d68f;
+  --yl: #e6cb8e;
+
+  --font: "Paper Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --ui: 400 12px/18px var(--font);
+  --ui-strong: 600 12px/18px var(--font);
+  --title: 400 20px/28px var(--font);
+  --tick: 400 10px/12px var(--font);
+  --row: 28px;
+  --dur-fast: 140ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --bg: #f4f3ee;
+  --bg-subtle: #ecebe3;
+  --fg: #24272e;
+  --fg-muted: #4c5361;
+  --fg-faint: #a3a59e;
+  --line: rgba(36, 39, 46, 0.15);
+  --edge: rgba(36, 39, 46, 0.52);
+  --hover: rgba(36, 39, 46, 0.045);
+  --selected: rgba(36, 39, 46, 0.1);
+  --pressed: rgba(36, 39, 46, 0.18);
+}
+
+/* fingers need more than a pointer does */
+@media (pointer: coarse) {
+  :root {
+    --row: 40px;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: var(--ui);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* the one grain, over every surface, never catching a touch */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background: url("./assets/grain.png") repeat;
+}
+:root[data-theme="paper"] body::after {
+  filter: invert(1);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  height: var(--row);
+  padding: 0 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease);
+}
+button:hover {
+  background: var(--hover);
+}
+button:active {
+  background: var(--pressed);
+}
+button:disabled {
+  color: var(--fg-faint);
+  border-color: var(--line);
+  cursor: default;
+}
+button.on,
+button[aria-pressed="true"],
+button[aria-selected="true"] {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+button.plain {
+  border-color: transparent;
+}
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+input[type="text"] {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  height: var(--row);
+  padding: 0 8px;
+  min-width: 0;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.label {
+  font: var(--tick);
+  color: var(--fg-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

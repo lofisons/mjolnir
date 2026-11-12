@@ -1,0 +1,463 @@
+//! Small, allocation-free DSP building blocks.
+
+use std::f32::consts::PI;
+
+/// Fast xorshift white noise in -1..1.
+#[derive(Clone)]
+pub struct Noise(u32);
+
+impl Noise {
+    pub fn new(seed: u32) -> Self {
+        Noise(seed.max(1))
+    }
+    #[inline]
+    pub fn next(&mut self) -> f32 {
+        let mut x = self.0;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        self.0 = x;
+        (x as f32 / u32::MAX as f32) * 2.0 - 1.0
+    }
+}
+
+/// Topology-preserving-transform state variable filter (Zavalishin).
+#[derive(Clone, Default)]
+pub struct Svf {
+    ic1: f32,
+    ic2: f32,
+    g: f32,
+    k: f32,
+    a1: f32,
+    a2: f32,
+    a3: f32,
+}
+
+#[derive(Clone, Copy)]
+pub struct SvfOut {
+    pub low: f32,
+    pub band: f32,
+    pub high: f32,
+}
+
+impl Svf {
+    pub fn set(&mut self, cutoff_hz: f32, q: f32, sample_rate: f32) {
+        let fc = cutoff_hz.clamp(10.0, sample_rate * 0.49);
+        self.g = (PI * fc / sample_rate).tan();
+        self.k = 1.0 / q.max(0.05);
+        self.a1 = 1.0 / (1.0 + self.g * (self.g + self.k));
+        self.a2 = self.g * self.a1;
+        self.a3 = self.g * self.a2;
+    }
+
+    #[inline]
+    pub fn process(&mut self, v0: f32) -> SvfOut {
+        let v3 = v0 - self.ic2;
+        let v1 = self.a1 * self.ic1 + self.a2 * v3;
+        let v2 = self.ic2 + self.a2 * self.ic1 + self.a3 * v3;
+        self.ic1 = 2.0 * v1 - self.ic1;
+        self.ic2 = 2.0 * v2 - self.ic2;
+        SvfOut {
+            low: v2,
+            band: v1,
+            high: v0 - self.k * v1 - v2,
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.ic1 = 0.0;
+        self.ic2 = 0.0;
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Stage {
+    Idle,
+    Attack,
+    Decay,
+    Sustain,
+    Release,
+}
+
+/// Linear-attack, exponential decay/release ADSR. Times in seconds.
+#[derive(Clone)]
+pub struct Adsr {
+    stage: Stage,
+    value: f32,
+    attack_inc: f32,
+    decay_coef: f32,
+    release_coef: f32,
+    sustain: f32,
+}
+
+impl Adsr {
+    pub fn new(attack: f32, decay: f32, sustain: f32, release: f32, sr: f32) -> Self {
+        let mut e = Adsr {
+            stage: Stage::Idle,
+            value: 0.0,
+            attack_inc: 1.0,
+            decay_coef: 0.0,
+            release_coef: 0.0,
+            sustain,
+        };
+        e.set(attack, decay, sustain, release, sr);
+        e
+    }
+
+    pub fn set(&mut self, attack: f32, decay: f32, sustain: f32, release: f32, sr: f32) {
+        self.attack_inc = 1.0 / (attack.max(0.0005) * sr);
+        self.decay_coef = exp_coef(decay, sr);
+        self.release_coef = exp_coef(release, sr);
+        self.sustain = sustain.clamp(0.0, 1.0);
+    }
+
+    pub fn gate_on(&mut self) {
+        self.stage = Stage::Attack;
+    }
+
+    pub fn gate_off(&mut self) {
+        if self.stage != Stage::Idle {
+            self.stage = Stage::Release;
+        }
+    }
+
+    /// Silence immediately.
+    pub fn kill(&mut self) {
+        self.stage = Stage::Idle;
+        self.value = 0.0;
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.stage != Stage::Idle
+    }
+
+    pub fn is_releasing(&self) -> bool {
+        self.stage == Stage::Release
+    }
+
+    #[inline]
+    pub fn next(&mut self) -> f32 {
+        match self.stage {
+            Stage::Idle => {}
+            Stage::Attack => {
+                self.value += self.attack_inc;
+                if self.value >= 1.0 {
+                    self.value = 1.0;
+                    self.stage = Stage::Decay;
+                }
+            }
+            Stage::Decay => {
+                self.value = self.sustain + (self.value - self.sustain) * self.decay_coef;
+                if (self.value - self.sustain).abs() < 1e-4 {
+                    self.value = self.sustain;
+                    self.stage = Stage::Sustain;
+                }
+            }
+            Stage::Sustain => {
+                self.value = self.sustain;
+                if self.sustain <= 1e-4 {
+                    self.stage = Stage::Idle;
+                    self.value = 0.0;
+                }
+            }
+            Stage::Release => {
+                self.value *= self.release_coef;
+                if self.value < 1e-4 {
+                    self.value = 0.0;
+                    self.stage = Stage::Idle;
+                }
+            }
+        }
+        self.value
+    }
+}
+
+/// Coefficient so that an exponential decays to ~-60 dB in `time` seconds.
+pub fn exp_coef(time: f32, sr: f32) -> f32 {
+    (-6.9 / (time.max(0.0005) * sr)).exp()
+}
+
+/// One-shot exponential decay envelope.
+#[derive(Clone, Default)]
+pub struct Decay {
+    pub value: f32,
+    coef: f32,
+}
+
+impl Decay {
+    pub fn trigger(&mut self, level: f32, time: f32, sr: f32) {
+        self.value = level;
+        self.coef = exp_coef(time, sr);
+    }
+    #[inline]
+    pub fn next(&mut self) -> f32 {
+        let v = self.value;
+        self.value *= self.coef;
+        v
+    }
+}
+
+#[inline]
+fn poly_blep(t: f32, dt: f32) -> f32 {
+    if t < dt {
+        let t = t / dt;
+        t + t - t * t - 1.0
+    } else if t > 1.0 - dt {
+        let t = (t - 1.0) / dt;
+        t * t + t + t + 1.0
+    } else {
+        0.0
+    }
+}
+
+/// Band-limited saw / square / sine oscillator.
+#[derive(Clone, Default)]
+pub struct Osc {
+    pub phase: f32,
+}
+
+impl Osc {
+    #[inline]
+    pub fn saw(&mut self, freq: f32, sr: f32) -> f32 {
+        let dt = (freq / sr).min(0.5);
+        let v = 2.0 * self.phase - 1.0 - poly_blep(self.phase, dt);
+        self.advance(dt);
+        v
+    }
+    #[inline]
+    pub fn square(&mut self, freq: f32, sr: f32) -> f32 {
+        let dt = (freq / sr).min(0.5);
+        let mut v = if self.phase < 0.5 { 1.0 } else { -1.0 };
+        v += poly_blep(self.phase, dt);
+        v -= poly_blep((self.phase + 0.5) % 1.0, dt);
+        self.advance(dt);
+        v
+    }
+    #[inline]
+    pub fn sine(&mut self, freq: f32, sr: f32) -> f32 {
+        let v = (self.phase * 2.0 * PI).sin();
+        self.advance(freq / sr);
+        v
+    }
+    #[inline]
+    fn advance(&mut self, dt: f32) {
+        self.phase += dt;
+        if self.phase >= 1.0 {
+            self.phase -= self.phase.floor();
+        }
+    }
+}
+
+/// One-pole parameter smoother.
+#[derive(Clone)]
+pub struct Smoother {
+    pub value: f32,
+    coef: f32,
+}
+
+impl Smoother {
+    pub fn new(value: f32, time: f32, sr: f32) -> Self {
+        Smoother {
+            value,
+            coef: (-1.0 / (time * sr)).exp(),
+        }
+    }
+    #[inline]
+    pub fn next(&mut self, target: f32) -> f32 {
+        self.value = target + (self.value - target) * self.coef;
+        self.value
+    }
+}
+
+pub fn midi_to_hz(pitch: f32) -> f32 {
+    440.0 * 2f32.powf((pitch - 69.0) / 12.0)
+}
+
+// ---------------------------------------------------------------- Freeverb
+
+struct Comb {
+    buf: Vec<f32>,
+    idx: usize,
+    store: f32,
+}
+
+impl Comb {
+    fn new(len: usize) -> Self {
+        Comb {
+            buf: vec![0.0; len],
+            idx: 0,
+            store: 0.0,
+        }
+    }
+    #[inline]
+    fn process(&mut self, input: f32, feedback: f32, damp: f32) -> f32 {
+        let out = self.buf[self.idx];
+        self.store = out * (1.0 - damp) + self.store * damp;
+        self.buf[self.idx] = input + self.store * feedback;
+        self.idx += 1;
+        if self.idx >= self.buf.len() {
+            self.idx = 0;
+        }
+        out
+    }
+}
+
+struct AllPass {
+    buf: Vec<f32>,
+    idx: usize,
+}
+
+impl AllPass {
+    fn new(len: usize) -> Self {
+        AllPass {
+            buf: vec![0.0; len],
+            idx: 0,
+        }
+    }
+    #[inline]
+    fn process(&mut self, input: f32) -> f32 {
+        let b = self.buf[self.idx];
+        let out = b - input;
+        self.buf[self.idx] = input + b * 0.5;
+        self.idx += 1;
+        if self.idx >= self.buf.len() {
+            self.idx = 0;
+        }
+        out
+    }
+}
+
+/// Classic Schroeder/Moorer "Freeverb" stereo reverb.
+pub struct Reverb {
+    combs: [Vec<Comb>; 2],
+    allpasses: [Vec<AllPass>; 2],
+    pub room: f32,
+    pub damp: f32,
+}
+
+impl Reverb {
+    pub fn new(sr: f32) -> Self {
+        const COMBS: [usize; 8] = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
+        const ALLPASSES: [usize; 4] = [556, 441, 341, 225];
+        let scale = sr / 44100.0;
+        let mk = |spread: usize| {
+            (
+                COMBS
+                    .iter()
+                    .map(|&l| Comb::new(((l + spread) as f32 * scale) as usize))
+                    .collect::<Vec<_>>(),
+                ALLPASSES
+                    .iter()
+                    .map(|&l| AllPass::new(((l + spread) as f32 * scale) as usize))
+                    .collect::<Vec<_>>(),
+            )
+        };
+        let (cl, al) = mk(0);
+        let (cr, ar) = mk(23);
+        Reverb {
+            combs: [cl, cr],
+            allpasses: [al, ar],
+            room: 0.84,
+            damp: 0.25,
+        }
+    }
+
+    #[inline]
+    pub fn process(&mut self, input: f32) -> (f32, f32) {
+        let inp = input * 0.015;
+        let mut out = [0.0f32; 2];
+        for ch in 0..2 {
+            let mut acc = 0.0;
+            for c in self.combs[ch].iter_mut() {
+                acc += c.process(inp, self.room, self.damp);
+            }
+            for a in self.allpasses[ch].iter_mut() {
+                acc = a.process(acc);
+            }
+            out[ch] = acc;
+        }
+        (out[0], out[1])
+    }
+}
+
+/// Stereo ping-pong delay with a fixed max length.
+pub struct PingPong {
+    left: Vec<f32>,
+    right: Vec<f32>,
+    idx: usize,
+    lp_l: f32,
+    lp_r: f32,
+}
+
+impl PingPong {
+    pub fn new(sr: f32, max_seconds: f32) -> Self {
+        let n = (sr * max_seconds) as usize + 1;
+        PingPong {
+            left: vec![0.0; n],
+            right: vec![0.0; n],
+            idx: 0,
+            lp_l: 0.0,
+            lp_r: 0.0,
+        }
+    }
+
+    #[inline]
+    pub fn process(&mut self, input: f32, delay_samples: usize, feedback: f32) -> (f32, f32) {
+        let n = self.left.len();
+        let d = delay_samples.clamp(1, n - 1);
+        let read = (self.idx + n - d) % n;
+        let dl = self.left[read];
+        let dr = self.right[read];
+        // gentle damping in the feedback path
+        self.lp_l += 0.4 * (dl - self.lp_l);
+        self.lp_r += 0.4 * (dr - self.lp_r);
+        self.left[self.idx] = input + self.lp_r * feedback;
+        self.right[self.idx] = self.lp_l * feedback;
+        self.idx = (self.idx + 1) % n;
+        (dl, dr)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn adsr_reaches_idle() {
+        let mut e = Adsr::new(0.001, 0.01, 0.5, 0.01, 1000.0);
+        e.gate_on();
+        for _ in 0..100 {
+            e.next();
+        }
+        assert!((e.next() - 0.5).abs() < 0.01);
+        e.gate_off();
+        for _ in 0..200 {
+            e.next();
+        }
+        assert!(!e.is_active());
+    }
+
+    #[test]
+    fn svf_lowpass_attenuates_highs() {
+        let sr = 48000.0;
+        let mut f = Svf::default();
+        f.set(200.0, 0.707, sr);
+        let mut osc = Osc::default();
+        let mut peak: f32 = 0.0;
+        for i in 0..48000 {
+            let y = f.process(osc.sine(5000.0, sr)).low;
+            if i > 1000 {
+                peak = peak.max(y.abs());
+            }
+        }
+        assert!(peak < 0.01, "peak {peak}");
+    }
+
+    #[test]
+    fn saw_is_bounded() {
+        let mut o = Osc::default();
+        for _ in 0..10000 {
+            assert!(o.saw(440.0, 48000.0).abs() <= 1.1);
+        }
+    }
+}
