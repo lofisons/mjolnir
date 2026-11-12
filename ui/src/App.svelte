@@ -9,6 +9,7 @@
   import Mix from "./components/Mix.svelte";
   import Punch from "./components/Punch.svelte";
   import Help from "./components/Help.svelte";
+  import Export from "./components/Export.svelte";
   import {
     app,
     act,
@@ -21,7 +22,6 @@
     openFile,
     saveFile,
     newSet,
-    exportSong,
     addSample,
     type Face,
   } from "./lib/app.svelte";
@@ -86,7 +86,7 @@
       if (what === "new") void newSet();
       else if (what === "open") void openFile();
       else if (what === "save") void saveFile();
-      else if (what === "export") void exportSong(true);
+      else if (what === "export") app.exporting = true;
       else if (what === "undo" || what === "redo") void act({ type: what });
       else if (what === "help") app.help = true;
     });
@@ -126,8 +126,9 @@
       void act({ type: e.shiftKey ? "redo" : "undo" });
     } else if (e.key === "?") {
       app.help = !app.help;
-    } else if (e.key === "Escape" && app.help) {
+    } else if (e.key === "Escape" && (app.help || app.exporting)) {
       app.help = false;
+      app.exporting = false;
     } else if (e.key === "Escape" && app.open) {
       app.open = false;
     } else if (e.key === "Tab" && !mod) {
@@ -178,7 +179,8 @@
 
     <footer class="status">
       <span class="sentence" role="status" class:warn={!!app.note}>{sentence}</span>
-      <button class="plain" disabled={!app.project?.history.undo} onclick={() => act({ type: "undo" })}>undo</button>
+      <button class="plain slim" disabled={!app.project?.history.undo} onclick={() => act({ type: "undo" })}>undo</button>
+      <button class="plain slim" disabled={!app.project?.history.redo} onclick={() => act({ type: "redo" })}>redo</button>
       <button aria-pressed={app.punch} onclick={() => (app.punch = !app.punch)}>fx</button>
       <button class="lit" aria-pressed={app.project?.record.notes ?? false} onclick={toggleRecord}>
         <span class="led" class:rd={app.project?.record.notes} class:blink={recording}></span>rec
@@ -190,6 +192,7 @@
   </div>
 {/if}
 {#if app.help}<Help />{/if}
+{#if app.exporting}<Export />{/if}
 
 <style>
   .failed {
@@ -259,6 +262,8 @@
   .punchbar {
     grid-column: 1 / -1;
     grid-row: 3;
+    min-width: 0;
+    overflow: hidden;
   }
   .status {
     grid-column: 1 / -1;
@@ -279,6 +284,9 @@
   }
   .sentence.warn {
     color: var(--fg);
+  }
+  .slim {
+    padding: 0 6px;
   }
   .primary {
     min-width: 72px;

@@ -187,7 +187,7 @@ function crc32(b: Uint8Array): number {
 }
 
 /** A zip archive with the files stored as they are (audio does not compress). */
-function zip(files: OutFile[]): Blob {
+export function zip(files: OutFile[]): Blob {
   const parts: BlobPart[] = [];
   const central: Uint8Array[] = [];
   let offset = 0;

@@ -4,7 +4,7 @@
   // Drag a clip to move it, its right edge to change its length, hold ctrl
   // or alt to drag a copy; a double click opens the loop.
   import NotePreview from "./NotePreview.svelte";
-  import { app, act, exportSong, openCell, trackColor } from "../lib/app.svelte";
+  import { app, act, openCell, trackColor } from "../lib/app.svelte";
   import { barTicks, type SongClip, capture } from "../lib/api";
 
   const tracks = $derived(app.project?.tracks ?? []);
@@ -242,7 +242,7 @@
     </label>
     <span class="grow"></span>
     <button disabled={!songBars} onclick={() => act({ type: "clear_song" })}>clear</button>
-    <button disabled={!songBars || !!app.busy} onclick={() => exportSong(true)}>{app.busy ? "rendering" : "export audio"}</button>
+    <button onclick={() => (app.exporting = true)}>export</button>
   </div>
 </div>
 

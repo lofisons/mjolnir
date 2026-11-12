@@ -1,7 +1,8 @@
 <script lang="ts">
   // The play face: sixteen step keys for the selected pad, and sixteen pads.
-  import { app, live, pattern, stepsOn, playhead, toggleStep, setBars, act, padPitch } from "../lib/app.svelte";
+  import { app, live, pattern, stepsOn, playhead, toggleStep, padPitch } from "../lib/app.svelte";
   import NoteDetail from "./NoteDetail.svelte";
+  import LoopTools from "./LoopTools.svelte";
   import { TICKS_PER_STEP, capture } from "../lib/api";
 
   const on = $derived(stepsOn());
@@ -48,7 +49,10 @@
     capture(e);
     app.pad = i;
     held[i] = true;
-    live({ type: "pad_on", track: app.track, pad: i, velocity: 0.85 });
+    // the higher on the pad, the harder the hit
+    const r = (e.currentTarget as Element).getBoundingClientRect();
+    const height = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    live({ type: "pad_on", track: app.track, pad: i, velocity: 0.5 + 0.5 * height });
   }
   function up(i: number) {
     if (!held[i]) return;
@@ -84,16 +88,7 @@
 <div class="play">
   <div class="head">
     <span class="what">{(app.pads[app.pad]?.label ?? "").toLowerCase()}</span>
-    <span class="grow"></span>
-    <span class="label">bars</span>
-    {#each [1, 2, 4, 8] as b}
-      <button class="mini" aria-pressed={bars === b} onclick={() => setBars(b)}>{b}</button>
-    {/each}
-    <button
-      class="mini"
-      disabled={!pat}
-      onclick={() => act({ type: "delete_pattern", track: app.track, slot: app.section })}>clear</button
-    >
+    <LoopTools />
   </div>
   {#if bars > 1}
     <div class="head">
@@ -169,17 +164,15 @@
   }
   .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 4px 6px;
     min-height: 24px;
   }
   .what {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .grow {
-    flex: 1;
   }
   .mini {
     height: 24px;

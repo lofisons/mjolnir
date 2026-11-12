@@ -42,6 +42,10 @@ export const app = $state({
   sets: [] as library.SetInfo[],
   /** The note whose detail is on screen. */
   pick: null as { start: number; pitch: number } | null,
+  /** The loop last copied, to paste into another cell. */
+  clip: null as { track: number; slot: number } | null,
+  /** The export sheet is open. */
+  exporting: false,
   /** The punch strip is out. */
   punch: false,
   help: false,
@@ -106,7 +110,15 @@ export async function start(): Promise<void> {
     if (saved) project = await engine.call<Project>({ type: "open_project", json: saved }).catch(() => undefined);
     if (!project) {
       app.set = library.newId();
-      project = await engine.call<Project>({ type: "get_project" });
+      // the very first time, the first thing heard is a finished piece
+      const first = !safe(() => localStorage.getItem(CURRENT));
+      const demo = first
+        ? await fetch(new URL("demos/shadow-walk.mjolnir", document.baseURI).href)
+            .then((r) => (r.ok ? r.text() : null))
+            .catch(() => null)
+        : null;
+      if (demo) project = await engine.call<Project>({ type: "open_project", json: demo }).catch(() => undefined);
+      project ??= await engine.call<Project>({ type: "get_project" });
       unsaved = true;
     }
     safe(() => localStorage.setItem(CURRENT, app.set));
@@ -422,19 +434,37 @@ export async function setBars(bars: number): Promise<void> {
   if (app.page >= bars) app.page = bars - 1;
 }
 
-/** Start or stop one loop from the grid; the transport starts with the first. */
-export async function toggleCell(t: number, s: number): Promise<boolean> {
-  app.section = s;
-  if (app.track !== t) await selectTrack(t);
+// What was last asked of each track. The engine's status arrives a moment
+// later, so for that moment the answer to "is it on?" is what was asked.
+const asked = new Map<number, { slot: number | null; at: number }>();
+
+/** The loop a track is playing or about to play, or null. */
+export function sounding(t: number): number | null {
+  const a = asked.get(t);
+  if (a && performance.now() - a.at < 400) return a.slot;
   const st = app.status?.tracks[t];
-  const on = playing() && !app.status?.song_mode && (st?.active === s || st?.queued === s) && !st?.queued_stop;
-  if (on) {
-    await act({ type: "launch", track: t, slot: null });
-    return false;
-  }
+  if (!st || !playing() || app.status?.song_mode || st.queued_stop) return null;
+  return st.queued ?? st.active;
+}
+
+/** Start a loop from the grid; the transport starts with the first. */
+export async function startCell(t: number, s: number): Promise<void> {
+  asked.set(t, { slot: s, at: performance.now() });
   if (app.status?.song_mode) await act({ type: "set_song_mode", on: false });
   await act({ type: "launch", track: t, slot: s });
   if (!playing()) await act({ type: "play" });
+}
+
+/** Start or stop one loop from the grid. Answers whether it is now on. */
+export async function toggleCell(t: number, s: number): Promise<boolean> {
+  app.section = s;
+  if (app.track !== t) await selectTrack(t);
+  if (sounding(t) === s) {
+    asked.set(t, { slot: null, at: performance.now() });
+    await act({ type: "launch", track: t, slot: null });
+    return false;
+  }
+  await startCell(t, s);
   return true;
 }
 
@@ -525,26 +555,88 @@ export async function openDemo(file: string): Promise<void> {
 
 const fileName = () => (app.project?.name || "beat").replace(/[^\w\- ]+/g, "").trim() || "beat";
 
-/** Bounce the song to a WAV file (and the MIDI file when asked). */
-export async function exportSong(midi = false): Promise<void> {
-  if (!app.project?.song.clips.length) {
-    app.note = "the song is empty → add sections to it first";
+export interface ExportChoice {
+  /** The whole song, or the row on screen as one loop. */
+  scope: "song" | "row";
+  mix: boolean;
+  stems: boolean;
+  midi: boolean;
+}
+
+/** Bounce the song (or one row, as a loop) to audio and MIDI files. */
+export async function exportAudio(choice: ExportChoice): Promise<void> {
+  const p = app.project;
+  if (!p) return;
+  if (choice.scope === "song" && !p.song.clips.length) {
+    app.note = "the song is empty → place loops on it first, or export the row";
     return;
   }
   app.busy = "rendering";
   try {
-    const r = await engine.call<{ json: string }>({ type: "snapshot" });
-    const [wav, mid] = await engine.render(r.json, midi ? [0, -1] : [0]);
-    const name = fileName();
+    let json = (await engine.call<{ json: string }>({ type: "snapshot" })).json;
+    let name = fileName();
+    if (choice.scope === "row") {
+      // a song made of just this row, as long as its longest loop
+      const file = JSON.parse(json);
+      const row = app.section;
+      const loops = (file.project.tracks as Project["tracks"]).filter((t) => t.slots[row]);
+      if (!loops.length) throw "this row has no loops";
+      const bars = Math.max(...loops.map((t) => t.slots[row]!.bars));
+      file.project.song = {
+        clips: loops.map((t) => ({ track: t.id, slot: row, start: 0, bars })),
+        looping: false,
+        fade_in: 0,
+        fade_out: 0,
+      };
+      json = JSON.stringify(file);
+      name = `${name} ${(p.scenes[row]?.name ?? String(row + 1)).toLowerCase()}`;
+    }
+    const tracks = choice.stems ? p.tracks.map((_, i) => i + 1) : [];
+    const what = [...(choice.mix ? [0] : []), ...(choice.midi ? [-1] : []), ...tracks];
+    if (!what.length) throw "choose something to export";
+    const out = await engine.render(json, what);
     const files: engine.OutFile[] = [];
-    if (wav) files.push({ name: `${name}.wav`, data: wav, type: "audio/wav" });
-    if (mid) files.push({ name: `${name}.mid`, data: mid, type: "audio/midi" });
-    const where = await engine.deliver(files, name);
-    if (where) app.note = where;
+    what.forEach((w, i) => {
+      const data = out[i];
+      if (!data) return;
+      if (w === 0) files.push({ name: `${name}.wav`, data, type: "audio/wav" });
+      else if (w === -1) files.push({ name: `${name}.mid`, data, type: "audio/midi" });
+      else {
+        const t = p.tracks[w - 1];
+        files.push({ name: `${name} ${String(w).padStart(2, "0")} ${t.name.toLowerCase()}.wav`, data, type: "audio/wav" });
+      }
+    });
+    if (!files.length) throw "there was nothing to render";
+    // several files travel as one zip
+    const bundle: engine.OutFile[] =
+      files.length > 1 ? [{ name: `${name}.zip`, data: new Uint8Array(await engine.zip(files).arrayBuffer()), type: "application/zip" }] : files;
+    const where = await engine.deliver(bundle, name);
+    app.note = where || "";
+    app.exporting = false;
   } catch (e) {
     app.note = String(e);
   }
   app.busy = "";
+}
+
+/** Put the copied loop into the cell on screen. */
+export async function pasteLoop(): Promise<void> {
+  const c = app.clip;
+  const from = c ? pattern(c.track, c.slot) : null;
+  if (!c || !from) {
+    app.note = "copy a loop first";
+    return;
+  }
+  const t = app.track;
+  const s = app.section;
+  if (c.track === t) {
+    if (c.slot !== s) await act({ type: "duplicate_pattern", track: t, from: c.slot, to: s });
+    return;
+  }
+  // from another track: the notes come over one by one
+  const notes = from.notes.map((n) => ({ ...n }));
+  await act({ type: "create_pattern", track: t, slot: s, bars: from.bars });
+  for (const note of notes) await act({ type: "add_note", track: t, slot: s, note });
 }
 
 export { engine };

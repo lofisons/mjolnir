@@ -226,6 +226,14 @@
     </div>
 
     <div class="tools">
+      <input
+        type="text"
+        class="tname"
+        aria-label="name of the track"
+        maxlength="24"
+        value={t.name}
+        onchange={(e) => act({ type: "rename_track", track: app.track, name: e.currentTarget.value.trim() || name })}
+      />
       <button aria-pressed={t.mute} onclick={() => act({ type: "set_mute", track: app.track, mute: !t.mute })}>mute</button>
       <button aria-pressed={t.solo} onclick={() => act({ type: "set_solo", track: app.track, solo: !t.solo })}>solo</button>
 
@@ -298,6 +306,10 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
     gap: 4px;
+  }
+  .tname {
+    flex: 1 1 120px;
+    min-width: 96px;
   }
   .yours {
     display: flex;

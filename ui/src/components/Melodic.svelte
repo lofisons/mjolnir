@@ -5,12 +5,11 @@
   import Roll from "./Roll.svelte";
   import Keys from "./Keys.svelte";
   import NoteDetail from "./NoteDetail.svelte";
-  import { app, act, live, pattern, setBars, refreshPads, track } from "../lib/app.svelte";
+  import LoopTools from "./LoopTools.svelte";
+  import { app, act, live, refreshPads, track } from "../lib/app.svelte";
   import type { ChordKind } from "../lib/api";
 
   const t = $derived(track());
-  const pat = $derived(pattern());
-  const bars = $derived(pat?.bars ?? 1);
   let held = $state<Record<number, boolean>>({});
 
   const LENGTHS: [number, string][] = [[1, "1/16"], [2, "1/8"], [4, "1/4"], [8, "1/2"], [16, "1"]];
@@ -32,7 +31,9 @@
     capture(e);
     app.pad = i;
     held[i] = true;
-    live({ type: "pad_on", track: app.track, pad: i, velocity: 0.85 });
+    const r = (e.currentTarget as Element).getBoundingClientRect();
+    const height = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    live({ type: "pad_on", track: app.track, pad: i, velocity: 0.5 + 0.5 * height });
   }
   function up(i: number) {
     if (!held[i]) return;
@@ -50,15 +51,7 @@
           <button class="mini" aria-pressed={app.noteLen === n} onclick={() => (app.noteLen = n)}>{name}</button>
         {/each}
       </span>
-      <span class="group end">
-        <span class="label">bars</span>
-        {#each [1, 2, 4, 8] as b}
-          <button class="mini" aria-pressed={bars === b} onclick={() => setBars(b)}>{b}</button>
-        {/each}
-        <button class="mini" disabled={!pat} onclick={() => act({ type: "delete_pattern", track: app.track, slot: app.section })}>
-          clear
-        </button>
-      </span>
+      <LoopTools />
     </div>
 
     <div class="roll"><Roll /></div>

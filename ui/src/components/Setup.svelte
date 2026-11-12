@@ -57,6 +57,17 @@
     const r = { ...p.record, ...patch };
     await act({ type: "set_record", notes: r.notes, automation: r.automation, quantize: r.quantize, song: r.song });
   }
+  // tap tempo: the pace of the last few taps
+  let taps: number[] = [];
+  function tap() {
+    const now = performance.now();
+    if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
+    taps.push(now);
+    if (taps.length > 5) taps.shift();
+    if (taps.length < 2) return;
+    const beat = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
+    void act({ type: "set_bpm", bpm: Math.round(Math.min(200, Math.max(40, 60000 / beat))) });
+  }
   async function setCountIn(bars: number) {
     countIn = bars;
     await act({ type: "set_count_in", bars });
@@ -131,6 +142,7 @@
           }}
         />
         <div class="tempo">
+          <button onclick={tap}>tap</button>
           <button aria-label="slower" onclick={() => act({ type: "set_bpm", bpm: p.bpm - 1 })}>−</button>
           <span class="big">{Math.round(p.bpm)}</span>
           <button aria-label="faster" onclick={() => act({ type: "set_bpm", bpm: p.bpm + 1 })}>+</button>

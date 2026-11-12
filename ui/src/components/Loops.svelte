@@ -3,14 +3,14 @@
   // A cell is a loop in its track's colour. One click plays it, another
   // stops it; a double click steps inside. An empty cell has nothing to
   // play, so one click steps in.
-  import { app, act, selectSection, openCell, toggleCell, playRow, playing, pattern, trackColor } from "../lib/app.svelte";
+  import { app, act, selectSection, openCell, toggleCell, startCell, sounding, playRow, playing, pattern, trackColor } from "../lib/app.svelte";
   import NotePreview from "./NotePreview.svelte";
 
   const tracks = $derived(app.project?.tracks ?? []);
   const scenes = $derived(app.project?.scenes ?? []);
   let adding = $state(false);
 
-  let last = { t: -1, s: -1, at: 0, started: false };
+  let last = { t: -1, s: -1, at: 0 };
   async function cell(t: number, s: number) {
     if (!pattern(t, s)) return openCell(t, s);
     const now = performance.now();
@@ -18,13 +18,12 @@
     if (double) {
       // the first click of the pair already answered: if it stopped the
       // loop, bring it back, then step in with it playing
-      if (!last.started) await toggleCell(t, s);
-      last = { t: -1, s: -1, at: 0, started: false };
+      last = { t: -1, s: -1, at: 0 };
+      if (sounding(t) !== s) await startCell(t, s);
       return openCell(t, s);
     }
-    last = { t, s, at: now, started: false };
-    const started = await toggleCell(t, s);
-    if (last.t === t && last.s === s) last.started = started;
+    last = { t, s, at: now };
+    await toggleCell(t, s);
   }
 
   async function addTrack(kind: "drums" | "melodic") {
@@ -113,6 +112,14 @@
 
   <div class="tools">
     <span class="label">section</span>
+    <input
+      type="text"
+      class="sname"
+      aria-label="name of the section"
+      maxlength="12"
+      value={scenes[app.section]?.name ?? ""}
+      onchange={(e) => act({ type: "rename_scene", scene: app.section, name: e.currentTarget.value.trim() || String(app.section + 1) })}
+    />
     <button onclick={() => act({ type: "add_section" })}>new</button>
     <button onclick={copySection}>copy</button>
     <button disabled={scenes.length < 2} onclick={() => act({ type: "delete_section", scene: app.section })}>delete</button>
@@ -244,5 +251,8 @@
   }
   .tools .label {
     margin-right: 4px;
+  }
+  .sname {
+    width: 72px;
   }
 </style>

@@ -9,7 +9,10 @@
     "build": "sh scripts/build-wasm.sh && vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "test:ui": "playwright test --trace off"
+    "test:ui": "playwright test --trace off",
+    "test": "cargo test --workspace && pnpm check && pnpm build && playwright test --trace off",
+    "demos": "node tools/build_demos.mjs",
+    "release": "sh scripts/release.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
