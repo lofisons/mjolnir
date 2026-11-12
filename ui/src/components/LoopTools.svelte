@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // What can be done to the loop on screen: its length, and, on demand,
   // copy, paste, snap to the grid, clear.
   import { app, act, pattern, setBars, pasteLoop } from "../lib/app.svelte";
@@ -19,16 +20,16 @@
 {#if more}
   <span class="group wide from-right">
     <button class="mini" disabled={!pat} aria-pressed={copied} onclick={() => (app.clip = { track: app.track, slot: app.section })}>
-      {copied ? "copied" : "copy"}
+      {copied ? tx("copied") : tx("copy")}
     </button>
-    <button class="mini" disabled={!app.clip || copied} onclick={pasteLoop}>paste</button>
-    <button class="mini" disabled={!pat} onclick={() => act({ type: "quantize", track: app.track, slot: app.section })}>snap</button>
+    <button class="mini" disabled={!app.clip || copied} onclick={pasteLoop}>{tx("paste")}</button>
+    <button class="mini" disabled={!pat} onclick={() => act({ type: "quantize", track: app.track, slot: app.section })}>{tx("snap")}</button>
     {#if pat?.automation.length}
       <button class="mini" onclick={() => act({ type: "clear_automation", track: app.track, slot: app.section, param: null })}>
-        forget knob moves
+        {tx("forget knob moves")}
       </button>
     {/if}
-    <button class="mini" disabled={!pat} onclick={() => act({ type: "delete_pattern", track: app.track, slot: app.section })}>clear</button>
+    <button class="mini" disabled={!pat} onclick={() => act({ type: "delete_pattern", track: app.track, slot: app.section })}>{tx("clear")}</button>
   </span>
 {/if}
 

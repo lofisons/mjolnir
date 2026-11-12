@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // The song face: one lane per track, loops placed as clips on a bar grid.
   // Each lane has a loop in hand (its picker); a click on the lane places it.
   // Drag a clip to move it, its right edge to change its length, hold ctrl
@@ -118,13 +119,13 @@
 
 <div class="song">
   <div class="tools">
-    <span class="label">add a row</span>
+    <span class="label">{tx("add a row")}</span>
     {#each used as s}
       <button onclick={() => act({ type: "append_scene", scene: s.i })}>{letter(s.i)}</button>
     {/each}
-    {#if !used.length}<span class="quiet">no loops yet</span>{/if}
+    {#if !used.length}<span class="quiet">{tx("no loops yet")}</span>{/if}
     <span class="grow"></span>
-    {#if pickedIndex >= 0}<button onclick={remove}>remove clip</button>{/if}
+    {#if pickedIndex >= 0}<button onclick={remove}>{tx("remove clip")}</button>{/if}
     <button aria-label="zoom out" onclick={() => (barW = Math.max(10, barW - 6))}>−</button>
     <button aria-label="zoom in" onclick={() => (barW = Math.min(76, barW + 6))}>+</button>
   </div>
@@ -241,8 +242,8 @@
       </select>
     </label>
     <span class="grow"></span>
-    <button disabled={!songBars} onclick={() => act({ type: "clear_song" })}>clear</button>
-    <button onclick={() => (app.exporting = true)}>export</button>
+    <button disabled={!songBars} onclick={() => act({ type: "clear_song" })}>{tx("clear")}</button>
+    <button onclick={() => (app.exporting = true)}>{tx("export")}</button>
   </div>
 </div>
 

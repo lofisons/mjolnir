@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // The export sheet: what to bounce, and into which files.
   import { app, exportAudio, type ExportChoice } from "../lib/app.svelte";
 
@@ -13,24 +14,24 @@
 <div class="veil" role="presentation" onclick={() => (app.exporting = false)}>
   <div class="sheet" role="dialog" aria-label="export" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={() => {}}>
     <div class="top">
-      <span class="title">export</span>
-      <button onclick={() => (app.exporting = false)}>close</button>
+      <span class="title">{tx("export")}</span>
+      <button onclick={() => (app.exporting = false)}>{tx("close")}</button>
     </div>
     <div class="line">
-      <span class="label">what</span>
-      <button aria-pressed={choice.scope === "song"} disabled={!hasSong} onclick={() => (choice.scope = "song")}>the song</button>
-      <button aria-pressed={choice.scope === "row"} onclick={() => (choice.scope = "row")}>row {row} as a loop</button>
+      <span class="label">{tx("what")}</span>
+      <button aria-pressed={choice.scope === "song"} disabled={!hasSong} onclick={() => (choice.scope = "song")}>{tx("the song")}</button>
+      <button aria-pressed={choice.scope === "row"} onclick={() => (choice.scope = "row")}>{tx("row")} {row} {tx("as a loop")}</button>
     </div>
     <div class="line">
-      <span class="label">as</span>
-      <button aria-pressed={choice.mix} onclick={() => (choice.mix = !choice.mix)}>the mix</button>
-      <button aria-pressed={choice.stems} onclick={() => (choice.stems = !choice.stems)}>one file per track</button>
+      <span class="label">{tx("as")}</span>
+      <button aria-pressed={choice.mix} onclick={() => (choice.mix = !choice.mix)}>{tx("the mix")}</button>
+      <button aria-pressed={choice.stems} onclick={() => (choice.stems = !choice.stems)}>{tx("one file per track")}</button>
       <button aria-pressed={choice.midi} onclick={() => (choice.midi = !choice.midi)}>midi</button>
     </div>
     <div class="line end">
-      <span class="note" role="status">{app.busy ? "rendering" : app.note || "24-bit wav, 44.1 kHz"}</span>
+      <span class="note" role="status">{app.busy ? tx("rendering") : tx(app.note) || "24-bit wav, 44.1 kHz"}</span>
       <button disabled={!!app.busy || !(choice.mix || choice.stems || choice.midi)} onclick={() => exportAudio(choice)}>
-        {app.busy ? "rendering" : "export"}
+        {app.busy ? tx("rendering") : tx("export")}
       </button>
     </div>
   </div>

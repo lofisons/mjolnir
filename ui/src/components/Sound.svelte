@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // The sound face: which sound, its seven macros, and, once opened, every
   // part of the synth as a knob.
   import Knob from "./Knob.svelte";
@@ -177,29 +178,29 @@
 
     <div class="shelves" role="tablist" aria-label="kinds of sound">
       {#each categories as c}
-        <button role="tab" aria-selected={shelf === c} onclick={() => (picked = c)}>{c}</button>
+        <button role="tab" aria-selected={shelf === c} onclick={() => (picked = c)}>{tx(c)}</button>
       {/each}
     </div>
     {#if shelf === "yours"}
       <div class="yours">
         <div class="tools">
-          <span class="label">play it</span>
+          <span class="label">{tx("play it")}</span>
           {#if !drums}
-            <button aria-pressed={mode === "melodic"} onclick={() => (mode = "melodic")}>across the keys</button>
-            <button aria-pressed={mode === "granular"} onclick={() => (mode = "granular")}>as grains</button>
+            <button aria-pressed={mode === "melodic"} onclick={() => (mode = "melodic")}>{tx("across the keys")}</button>
+            <button aria-pressed={mode === "granular"} onclick={() => (mode = "granular")}>{tx("as grains")}</button>
           {:else}
-            <button aria-pressed={mode === "kit"} onclick={() => (mode = "kit")}>sliced on the pads</button>
+            <button aria-pressed={mode === "kit"} onclick={() => (mode = "kit")}>{tx("sliced on the pads")}</button>
           {/if}
         </div>
         <div class="tools">
-          <button onclick={() => sampleFromFile(mode, app.track)}>from a file</button>
+          <button onclick={() => sampleFromFile(mode, app.track)}>{tx("from a file")}</button>
           {#if canRecord}
             <button class="lit" aria-pressed={!!taking} onclick={recordToggle}>
-              <span class="led" class:rd={!!taking} class:blink={!!taking}></span>{taking ? "stop and keep" : "record the microphone"}
+              <span class="led" class:rd={!!taking} class:blink={!!taking}></span>{taking ? tx("stop and keep") : tx("record the microphone")}
             </button>
           {/if}
         </div>
-        <span class="label">up to twenty seconds; it replaces this track's sound</span>
+        <span class="label">{tx("up to twenty seconds; it replaces this track's sound")}</span>
       </div>
     {:else}
       <div class="shelf" role="listbox" aria-label="sounds">
@@ -238,12 +239,12 @@
       <button aria-pressed={t.solo} onclick={() => act({ type: "set_solo", track: app.track, solo: !t.solo })}>solo</button>
 
       <span class="grow"></span>
-      <button disabled={(app.project?.tracks.length ?? 0) < 2} onclick={removeTrack}>remove track</button>
+      <button disabled={(app.project?.tracks.length ?? 0) < 2} onclick={removeTrack}>{tx("remove track")}</button>
     </div>
 
     {#if !designed && openable}
       <div class="tools">
-        <button onclick={() => act({ type: "design_sound", track: app.track })}>open the sound</button>
+        <button onclick={() => act({ type: "design_sound", track: app.track })}>{tx("open the sound")}</button>
       </div>
     {:else if patch}
       {#if drums}

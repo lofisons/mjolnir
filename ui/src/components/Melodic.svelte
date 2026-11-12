@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   import { capture } from "../lib/api";
   // Inside a melodic track: the piano roll above, and below it something to
   // play: a keyboard, or pads of the key's notes (chords, when chords are on).
@@ -46,7 +47,7 @@
   <div class="melodic">
     <div class="head">
       <span class="group">
-        <span class="label">note</span>
+        <span class="label">{tx("note")}</span>
         {#each LENGTHS as [n, name]}
           <button class="mini" aria-pressed={app.noteLen === n} onclick={() => (app.noteLen = n)}>{name}</button>
         {/each}
@@ -60,14 +61,14 @@
 
     <div class="head">
       <span class="group">
-        <button class="mini" aria-pressed={app.surface === "keys"} onclick={() => (app.surface = "keys")}>keys</button>
+        <button class="mini" aria-pressed={app.surface === "keys"} onclick={() => (app.surface = "keys")}>{tx("keys")}</button>
         <button class="mini" aria-pressed={app.surface === "pads"} onclick={() => (app.surface = "pads")}>pads</button>
         <button class="mini" aria-label="octave down" onclick={() => octave(-1)}>−</button>
         <span class="oct">{t.octave}</span>
         <button class="mini" aria-label="octave up" onclick={() => octave(1)}>+</button>
       </span>
       <span class="group end">
-        <span class="label">chords</span>
+        <span class="label">{tx("chords")}</span>
         {#each CHORDS as [mode, name]}
           <button class="mini" aria-pressed={(t.chord_mode ?? null) === mode} onclick={() => chords(mode)}>{name}</button>
         {/each}
@@ -101,9 +102,8 @@
 
 <style>
   .melodic {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1.25fr) auto auto minmax(0, 1fr);
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     padding: 8px 16px 12px;
     height: 100%;
@@ -133,8 +133,12 @@
     padding: 0 6px;
     border-color: var(--line);
   }
-  .roll,
+  .roll {
+    flex: 1.25 1 0;
+    min-height: 0;
+  }
   .surface {
+    flex: 1 1 0;
     min-height: 0;
   }
   .pads {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx, lang, setLang } from "../lib/i18n.svelte";
   // The set face: the sets kept in this browser, this set's name, tempo and
   // key, how recording behaves, and this device.
   import Knob from "./Knob.svelte";
@@ -77,7 +78,7 @@
 {#if p}
   <div class="set">
     <section>
-      <div class="group">sets</div>
+      <div class="group">{tx("sets")}</div>
       <div class="sets" role="list">
         {#each app.sets as s (s.id)}
           <div class="row" class:open={s.id === app.set} role="listitem">
@@ -90,23 +91,23 @@
                 onclick={() => {
                   removing = null;
                   void removeSet(s.id);
-                }}>remove for good</button
+                }}>{tx("remove for good")}</button
               >
-              <button onclick={() => (removing = null)}>keep</button>
+              <button onclick={() => (removing = null)}>{tx("keep")}</button>
             {:else}
-              <button aria-label="copy {s.name}" onclick={() => duplicateSet(s.id)}>copy</button>
-              <button aria-label="remove {s.name}" onclick={() => (removing = s.id)}>remove</button>
+              <button aria-label="copy {s.name}" onclick={() => duplicateSet(s.id)}>{tx("copy")}</button>
+              <button aria-label="remove {s.name}" onclick={() => (removing = s.id)}>{tx("remove")}</button>
             {/if}
           </div>
         {/each}
       </div>
       <div class="line wrap">
-        <button onclick={newSet}>new set</button>
-        <button onclick={openFile}>open a file</button>
-        <button onclick={saveFile}>save this set to a file</button>
+        <button onclick={newSet}>{tx("new set")}</button>
+        <button onclick={openFile}>{tx("open a file")}</button>
+        <button onclick={saveFile}>{tx("save this set to a file")}</button>
       </div>
       <div class="line wrap">
-        <span class="label">listen to a demo</span>
+        <span class="label">{tx("listen to a demo")}</span>
         {#each DEMOS as [file, name]}
           <button onclick={() => openDemo(file)}>{name}</button>
         {/each}
@@ -114,7 +115,7 @@
     </section>
 
     <section>
-      <div class="group">this set</div>
+      <div class="group">{tx("this set")}</div>
       <div class="line">
         <input type="text" aria-label="name" value={p.name} onchange={(e) => act({ type: "set_name", name: e.currentTarget.value })} />
       </div>
@@ -161,13 +162,13 @@
     </section>
 
     <section>
-      <div class="group">recording</div>
+      <div class="group">{tx("recording")}</div>
       <div class="line wrap">
         <button aria-pressed={app.status?.metronome ?? false} onclick={() => live({ type: "set_metronome", on: !app.status?.metronome })}>
-          metronome
+          {tx("metronome")}
         </button>
-        <button aria-pressed={p.record.quantize} onclick={() => record({ quantize: !p.record.quantize })}>snap to the grid</button>
-        <span class="label">count in</span>
+        <button aria-pressed={p.record.quantize} onclick={() => record({ quantize: !p.record.quantize })}>{tx("snap to the grid")}</button>
+        <span class="label">{tx("count in")}</span>
         {#each [0, 1, 2] as b}
           <button aria-pressed={countIn === b} onclick={() => setCountIn(b)}>{b === 0 ? "none" : `${b} bar${b > 1 ? "s" : ""}`}</button>
         {/each}
@@ -175,15 +176,18 @@
     </section>
 
     <section>
-      <div class="group">this device</div>
+      <div class="group">{tx("this device")}</div>
       <div class="line wrap">
-        <button aria-pressed={theme === "dark"} onclick={() => setTheme("dark")}>dark</button>
-        <button aria-pressed={theme === "paper"} onclick={() => setTheme("paper")}>paper</button>
-        <button onclick={() => (app.help = true)}>how to play</button>
+        <button aria-pressed={theme === "dark"} onclick={() => setTheme("dark")}>{tx("dark")}</button>
+        <button aria-pressed={theme === "paper"} onclick={() => setTheme("paper")}>{tx("paper")}</button>
+        <button onclick={() => (app.help = true)}>{tx("how to play")}</button>
+        <span class="label">{tx("language")}</span>
+        <button aria-pressed={lang.code === "en"} onclick={() => setLang("en")}>english</button>
+        <button aria-pressed={lang.code === "es"} onclick={() => setLang("es")}>español</button>
       </div>
       <div class="line wrap readings">
-        <span><span class="label">output</span> {Math.round(engine.sampleRate() / 100) / 10} kHz · {engine.latencyMs()} ms</span>
-        <span><span class="label">midi</span> {app.midi.length ? app.midi.join(", ").toLowerCase() : "no controller"}</span>
+        <span><span class="label">{tx("output")}</span> {Math.round(engine.sampleRate() / 100) / 10} kHz · {engine.latencyMs()} ms</span>
+        <span><span class="label">midi</span> {app.midi.length ? app.midi.join(", ").toLowerCase() : tx("no controller")}</span>
       </div>
     </section>
   </div>

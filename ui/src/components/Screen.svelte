@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // The screen: the signal itself, drawn as sand. Every point is a real
   // sample of what is sounding; older frames fade like a long exposure.
   import { onMount } from "svelte";
@@ -105,7 +106,7 @@
       class:rd={playing() && app.project?.record.notes}
     ></span>
     <span class:quiet={!playing()}>
-      {app.project?.record.notes && playing() ? "recording" : playing() ? "playing" : "stopped"}
+      {app.project?.record.notes && playing() ? tx("recording") : playing() ? tx("playing") : tx("stopped")}
     </span>
   </div>
   <div class="br">

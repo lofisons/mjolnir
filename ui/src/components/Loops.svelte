@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // The loops face, where everything starts: tracks across, sections down.
   // A cell is a loop in its track's colour. One click plays it, another
   // stops it; a double click steps inside. An empty cell has nothing to
@@ -104,14 +105,14 @@
 
   {#if adding}
     <div class="tools from-right">
-      <span class="label">new track</span>
-      <button onclick={() => addTrack("drums")}>drums</button>
-      <button onclick={() => addTrack("melodic")}>keys</button>
+      <span class="label">{tx("new track")}</span>
+      <button onclick={() => addTrack("drums")}>{tx("drums")}</button>
+      <button onclick={() => addTrack("melodic")}>{tx("keys")}</button>
     </div>
   {/if}
 
   <div class="tools">
-    <span class="label">section</span>
+    <span class="label">{tx("section")}</span>
     <input
       type="text"
       class="sname"
@@ -120,9 +121,9 @@
       value={scenes[app.section]?.name ?? ""}
       onchange={(e) => act({ type: "rename_scene", scene: app.section, name: e.currentTarget.value.trim() || String(app.section + 1) })}
     />
-    <button onclick={() => act({ type: "add_section" })}>new</button>
-    <button onclick={copySection}>copy</button>
-    <button disabled={scenes.length < 2} onclick={() => act({ type: "delete_section", scene: app.section })}>delete</button>
+    <button onclick={() => act({ type: "add_section" })}>{tx("new")}</button>
+    <button onclick={copySection}>{tx("copy")}</button>
+    <button disabled={scenes.length < 2} onclick={() => act({ type: "delete_section", scene: app.section })}>{tx("delete")}</button>
   </div>
 </div>
 
@@ -138,7 +139,7 @@
   .grid {
     display: grid;
     gap: 4px;
-    grid-auto-rows: minmax(40px, 56px);
+    grid-auto-rows: minmax(40px, 76px);
     grid-template-rows: 36px;
     flex: 0 1 auto;
   }

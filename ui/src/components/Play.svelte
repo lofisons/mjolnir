@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // The play face: sixteen step keys for the selected pad, and sixteen pads.
   import { app, live, pattern, stepsOn, playhead, toggleStep, padPitch } from "../lib/app.svelte";
   import NoteDetail from "./NoteDetail.svelte";
@@ -92,7 +93,7 @@
   </div>
   {#if bars > 1}
     <div class="head">
-      <span class="label">showing bar</span>
+      <span class="label">{tx("showing bar")}</span>
       {#each Array.from({ length: bars }, (_, i) => i) as b}
         <button
           class="mini"
@@ -104,7 +105,7 @@
           }}>{b + 1}</button
         >
       {/each}
-      <button class="mini" aria-pressed={follow} onclick={() => (follow = !follow)}>follow</button>
+      <button class="mini" aria-pressed={follow} onclick={() => (follow = !follow)}>{tx("follow")}</button>
     </div>
   {/if}
 

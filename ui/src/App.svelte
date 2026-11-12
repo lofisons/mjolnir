@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "./lib/i18n.svelte";
   import { onMount } from "svelte";
   import Screen from "./components/Screen.svelte";
   import Loops from "./components/Loops.svelte";
@@ -97,17 +98,19 @@
 
   // one sentence: what is wrong, else what is happening
   const sentence = $derived.by(() => {
-    if (app.note) return app.note;
-    if (app.busy) return app.busy;
-    if (!app.awake) return "touch to wake the sound";
+    if (app.note) return tx(app.note);
+    if (app.busy) return tx(app.busy);
+    if (!app.awake) return tx("touch to wake the sound");
     const s = app.status;
-    if (s?.count_in) return `count in ${s.count_in}`;
-    if (recording) return "recording · play the pads";
-    if (s?.song_mode && playing()) return "playing the song";
-    if (playing()) return `playing · ${(scenes[app.section]?.name ?? "").toLowerCase()}`;
+    if (s?.count_in) return `${tx("count in")} ${s.count_in}`;
+    if (recording) return tx("recording · play the pads");
+    if (s?.song_mode && playing()) return tx("playing the song");
+    if (playing()) return `${tx("playing")} · ${(scenes[app.section]?.name ?? "").toLowerCase()}`;
     if (app.face === "loops" && !app.open)
-      return app.project?.tracks.some((t) => t.slots.some(Boolean)) ? "click plays a loop · double click opens it" : "touch + to begin";
-    return "stopped";
+      return tx(
+        app.project?.tracks.some((t) => t.slots.some(Boolean)) ? "click plays a loop · double click opens it" : "touch + to begin",
+      );
+    return tx("stopped");
   });
 
   function go(f: Face) {
@@ -148,7 +151,7 @@
     <p>nothing was lost.</p>
   </main>
 {:else if !app.ready}
-  <main class="failed"><p>loading the engine</p></main>
+  <main class="failed"><p>{tx("loading the engine")}</p></main>
 {:else}
   <div class="shell" class:wide>
     <header class="bar">
@@ -157,6 +160,10 @@
         {#each FACES as f}
           <button class="plain tab" role="tab" aria-selected={app.face === f} onclick={() => go(f)}>{f}</button>
         {/each}
+      </div>
+      <div class="history">
+        <button class="plain slim" disabled={!app.project?.history.undo} onclick={() => act({ type: "undo" })}>{tx("undo")}</button>
+        <button class="plain slim" disabled={!app.project?.history.redo} onclick={() => act({ type: "redo" })}>{tx("redo")}</button>
       </div>
     </header>
 
@@ -179,8 +186,6 @@
 
     <footer class="status">
       <span class="sentence" role="status" class:warn={!!app.note}>{sentence}</span>
-      <button class="plain slim" disabled={!app.project?.history.undo} onclick={() => act({ type: "undo" })}>undo</button>
-      <button class="plain slim" disabled={!app.project?.history.redo} onclick={() => act({ type: "redo" })}>redo</button>
       <button aria-pressed={app.punch} onclick={() => (app.punch = !app.punch)}>fx</button>
       <button class="lit" aria-pressed={app.project?.record.notes ?? false} onclick={toggleRecord}>
         <span class="led" class:rd={app.project?.record.notes} class:blink={recording}></span>rec
@@ -285,8 +290,13 @@
   .sentence.warn {
     color: var(--fg);
   }
+  .history {
+    display: flex;
+    flex: none;
+  }
   .slim {
     padding: 0 6px;
+    color: var(--fg-muted);
   }
   .primary {
     min-width: 72px;

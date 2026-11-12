@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // The note that is picked: how hard it is played, how often it sounds, how
   // many times it strikes.
   import Knob from "./Knob.svelte";
@@ -61,7 +62,7 @@
       onend={commit}
     />
     <span class="grow"></span>
-    <button onclick={remove}>remove</button>
+    <button onclick={remove}>{tx("remove")}</button>
     <button class="plain" aria-label="done" onclick={() => (app.pick = null)}>×</button>
   </div>
 {/if}

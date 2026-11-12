@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tx } from "../lib/i18n.svelte";
   // Inside a track: its loop for the section on screen, as steps and pads,
   // or its sound. The way back to the loops is always top left.
   import Play from "./Play.svelte";
@@ -37,11 +38,11 @@
         </button>
       {/each}
     </div>
-    <button class="keep" title="keep what you just played as this loop" onclick={capture}>capture</button>
+    <button class="keep" title="keep what you just played as this loop" onclick={capture}>{tx("capture")}</button>
     {#if !wide}
       <div class="panes" role="tablist" aria-label="view">
-        <button role="tab" aria-selected={app.pane === "notes"} onclick={() => (app.pane = "notes")}>notes</button>
-        <button role="tab" aria-selected={app.pane === "sound"} onclick={() => (app.pane = "sound")}>sound</button>
+        <button role="tab" aria-selected={app.pane === "notes"} onclick={() => (app.pane = "notes")}>{tx("notes")}</button>
+        <button role="tab" aria-selected={app.pane === "sound"} onclick={() => (app.pane = "sound")}>{tx("sound")}</button>
       </div>
     {/if}
   </div>
