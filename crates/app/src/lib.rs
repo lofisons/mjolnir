@@ -335,8 +335,23 @@ pub enum Action {
         scene: usize,
     },
 
+    /// Keep what was just played on the track as a loop (in `slot`, or the
+    /// first free one) even though nothing was recording.
     Capture {
         track: usize,
+        #[serde(default)]
+        slot: Option<usize>,
+    },
+    /// A recording or an audio file (a WAV, as base64) becomes a sound: on a
+    /// new track, or on `track` when given. `mode` is how it is played:
+    /// across the keys, sliced into pads, or as grains.
+    AddSample {
+        wav: String,
+        mode: mjolnir_engine::controller::SampleMode,
+        #[serde(default)]
+        track: Option<usize>,
+        #[serde(default)]
+        name: Option<String>,
     },
 
     SetMacro {
@@ -543,8 +558,8 @@ impl App {
                 session.clean(&c.project, None);
                 return Ok(json!({ "json": json, "project": project(c, session)? }));
             }
-            Action::Capture { track } => {
-                let slot = c.capture(track, None)?;
+            Action::Capture { track, slot } => {
+                let slot = c.capture(track, slot)?;
                 return Ok(json!({ "project": project(c, session)?, "slot": slot }));
             }
             Action::SetPan { track, pan } => return c.set_pan(track, pan).map(|_| Value::Null),
@@ -666,6 +681,29 @@ impl App {
             }
             Action::RenameSound { track, pad, name } => c.rename_sound(track, pad, name)?,
             Action::LoadSoundFile { track, json } => c.load_sound_file(track, &json)?,
+            Action::AddSample {
+                wav,
+                mode,
+                track,
+                name,
+            } => {
+                use base64::Engine as _;
+                let bytes = base64::engine::general_purpose::STANDARD
+                    .decode(wav.as_bytes())
+                    .map_err(|_| "the audio could not be read")?;
+                let (sample, _) = c.import_wav(&bytes)?;
+                let index = match track {
+                    Some(t) => {
+                        let spec = c.sample_spec(sample, mode)?;
+                        c.swap_instrument(t, spec)?;
+                        t
+                    }
+                    None => c.add_sample_track(sample, mode)?,
+                };
+                if let Some(name) = name.filter(|n| !n.trim().is_empty()) {
+                    c.rename_track(index, name)?;
+                }
+            }
             Action::SetOctave { track, octave } => c.set_octave(track, octave)?,
             Action::SetChordMode { track, mode } => c.set_chord_mode(track, mode)?,
             Action::CreatePattern { track, slot, bars } => c.create_pattern(track, slot, bars)?,

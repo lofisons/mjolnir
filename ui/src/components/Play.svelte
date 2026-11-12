@@ -1,6 +1,7 @@
 <script lang="ts">
   // The play face: sixteen step keys for the selected pad, and sixteen pads.
-  import { app, live, pattern, stepsOn, playhead, toggleStep, setBars, act } from "../lib/app.svelte";
+  import { app, live, pattern, stepsOn, playhead, toggleStep, setBars, act, padPitch } from "../lib/app.svelte";
+  import NoteDetail from "./NoteDetail.svelte";
   import { TICKS_PER_STEP, capture } from "../lib/api";
 
   const on = $derived(stepsOn());
@@ -22,6 +23,26 @@
     for (const n of pat.notes) if (Math.round(n.start / TICKS_PER_STEP) === head) set.add(n.pitch);
     return set;
   });
+
+  // a long press (or a right click) on a lit step picks it without switching it off
+  let pressing: ReturnType<typeof setTimeout> | null = null;
+  let picked = false;
+  const pickStep = (i: number) => (app.pick = { start: (app.page * 16 + i) * TICKS_PER_STEP, pitch: padPitch() });
+  function stepDown(i: number, lit: boolean) {
+    picked = false;
+    if (!lit) return;
+    pressing = setTimeout(() => {
+      picked = true;
+      pickStep(i);
+    }, 320);
+  }
+  function stepUp(i: number) {
+    if (pressing) clearTimeout(pressing);
+    pressing = null;
+    if (!picked) void toggleStep(app.page * 16 + i);
+  }
+  const isPicked = (i: number) =>
+    app.pick?.pitch === padPitch() && app.pick?.start === (app.page * 16 + i) * TICKS_PER_STEP;
 
   function down(e: PointerEvent, i: number) {
     capture(e);
@@ -98,14 +119,24 @@
         class="step"
         class:beat={i % 4 === 0}
         class:head={head === app.page * 16 + i}
+        class:picked={isPicked(i)}
         aria-pressed={lit}
         aria-label="step {i + 1}"
-        onclick={() => toggleStep(app.page * 16 + i)}
+        onpointerdown={() => stepDown(i, lit)}
+        onpointerup={() => stepUp(i)}
+        onpointerleave={() => pressing && clearTimeout(pressing)}
+        oncontextmenu={(e) => {
+          e.preventDefault();
+          if (lit) pickStep(i);
+        }}
+        onkeydown={(e) => (e.key === "Enter" || e.key === " ") && toggleStep(app.page * 16 + i)}
       >
         <span class="n">{i + 1}</span>
       </button>
     {/each}
   </div>
+
+  <NoteDetail named={false} />
 
   <div class="pads" role="group" aria-label="pads">
     {#each app.pads as pad, i}
@@ -173,6 +204,17 @@
     width: 100%;
     padding: 0;
     border-color: var(--line);
+  }
+  /* the step whose detail is on screen */
+  .step.picked::after {
+    content: "";
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    width: 5px;
+    height: 5px;
+    background: var(--bg);
+    outline: 1px solid var(--fg);
   }
   .step.beat {
     border-color: var(--edge);

@@ -208,6 +208,49 @@ function zip(files: OutFile[]): Blob {
   return new Blob([...parts, ...(central as BlobPart[]), end.buffer], { type: "application/zip" });
 }
 
+/** Decode any audio the browser understands. */
+export function decode(bytes: ArrayBuffer): Promise<AudioBuffer> {
+  if (!ctx) return Promise.reject("the engine is not loaded");
+  return ctx.decodeAudioData(bytes);
+}
+
+/** Record the microphone until `stop` is called; resolves with what it heard. */
+export async function record(): Promise<{ stop: () => Promise<AudioBuffer> }> {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  });
+  const recorder = new MediaRecorder(stream);
+  const parts: Blob[] = [];
+  recorder.ondataavailable = (e) => parts.push(e.data);
+  recorder.start();
+  return {
+    stop: () =>
+      new Promise<AudioBuffer>((ok, err) => {
+        recorder.onstop = async () => {
+          stream.getTracks().forEach((t) => t.stop());
+          try {
+            ok(await decode(await new Blob(parts).arrayBuffer()));
+          } catch (e) {
+            err(e);
+          }
+        };
+        recorder.stop();
+      }),
+  };
+}
+
+/** Ask for one file. */
+export function pickFile(accept: string): Promise<File | null> {
+  return new Promise((ok) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.onchange = () => ok(input.files?.[0] ?? null);
+    input.oncancel = () => ok(null);
+    input.click();
+  });
+}
+
 /** Ask for one file and read it as text. */
 export function pickText(accept: string): Promise<string | null> {
   return new Promise((ok) => {

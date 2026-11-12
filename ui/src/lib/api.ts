@@ -27,6 +27,10 @@ export interface Note {
   length: number;
   pitch: number;
   velocity: number;
+  /** How often it sounds, in percent (missing = always). */
+  chance?: number;
+  /** Strikes inside its first sixteenth (missing = once). */
+  repeat?: number;
 }
 export interface AutoPoint {
   tick: number;
@@ -49,6 +53,7 @@ export type InstrumentSpec =
   | { type: "sample_kit"; sample: number; slices: [number, number][] }
   | { type: "granular"; texture: string; sample: number | null }
   | { type: "custom_synth"; name: string; patch: Record<string, number> }
+  | { type: "macro"; name: string; patch: Record<string, number> }
   | { type: "custom_kit"; name: string; pads: Record<string, number>[]; names: string[] };
 
 /** One knob of a designable sound (from the engine's parameter table). */
@@ -102,6 +107,10 @@ export interface Master {
   vinyl: number;
   tape: number;
   warmth: number;
+  /** Size of the room every track sends to. */
+  space: number;
+  /** How much the rest makes room for the kick. */
+  pump: number;
 }
 export interface Project {
   session?: { path: string | null; dirty: boolean };
@@ -178,6 +187,9 @@ export interface Info {
     macros: { id: MacroParam; label: string }[];
     meters?: Meter[];
     synth_params?: ParamSpec[];
+    macro_params?: ParamSpec[];
+    macro_sounds?: (Option_ & { patch: Record<string, number> })[];
+    punch?: string[];
     drum_params?: ParamSpec[];
   };
   sample_rate: number;
@@ -253,7 +265,9 @@ export type Action =
   | { type: "rename_scene"; scene: number; name: string }
   | { type: "add_section"; name?: string }
   | { type: "delete_section"; scene: number }
-  | { type: "capture"; track: number }
+  | { type: "capture"; track: number; slot?: number }
+  | { type: "add_sample"; wav: string; mode: "melodic" | "kit" | "granular"; track?: number; name?: string }
+  | { type: "punch"; effect: string; on: boolean }
   | { type: "set_macro"; track: number; param: MacroParam; value: number }
   | { type: "touch"; track: number; param: MacroParam; touching: boolean }
   | { type: "set_automation"; track: number; slot: number; param: MacroParam; points: AutoPoint[] }

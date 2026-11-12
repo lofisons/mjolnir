@@ -1,24 +1,40 @@
 <script lang="ts">
-  // The set face: the project (name, tempo, key), the master's colour, files.
+  // The set face: the sets kept in this browser, this set's name, tempo and
+  // key, how recording behaves, and this device.
   import Knob from "./Knob.svelte";
-  import { app, act, live, saveFile, openFile, replaceProject, refreshPads, engine } from "../lib/app.svelte";
+  import {
+    app,
+    act,
+    live,
+    saveFile,
+    openFile,
+    openSet,
+    newSet,
+    duplicateSet,
+    removeSet,
+    openDemo,
+    refreshPads,
+    engine,
+  } from "../lib/app.svelte";
   import { NOTE_NAMES } from "../lib/api";
 
   const p = $derived(app.project);
   const kinds = $derived(app.info?.catalog.scales ?? []);
   let theme = $state(document.documentElement.dataset.theme === "paper" ? "paper" : "dark");
+  let removing = $state<string | null>(null);
+  let countIn = $state(0);
 
   const BPM = [40, 200];
   const bpmNorm = (b: number) => (b - BPM[0]) / (BPM[1] - BPM[0]);
+  const DEMOS: [string, string][] = [
+    ["shadow-walk.mjolnir", "shadow walk"],
+    ["fog.mjolnir", "fog"],
+    ["signal.mjolnir", "signal"],
+  ];
 
   async function scale(root: number, kind: string) {
     await act({ type: "set_scale", root, kind, track: null });
     await refreshPads();
-  }
-  function master(key: "volume" | "tape" | "vinyl" | "warmth", v: number) {
-    if (!p) return;
-    p.master[key] = v;
-    live({ type: "set_master", master: { ...p.master } });
   }
   function setTheme(t: string) {
     theme = t;
@@ -29,19 +45,67 @@
       /* private window */
     }
   }
+  function when(ms: number) {
+    const d = (Date.now() - ms) / 1000;
+    if (d < 90) return "now";
+    if (d < 3600) return `${Math.round(d / 60)} min ago`;
+    if (d < 86400) return `${Math.round(d / 3600)} h ago`;
+    return `${Math.round(d / 86400)} d ago`;
+  }
+  async function record(patch: { quantize?: boolean }) {
+    if (!p) return;
+    const r = { ...p.record, ...patch };
+    await act({ type: "set_record", notes: r.notes, automation: r.automation, quantize: r.quantize, song: r.song });
+  }
+  async function setCountIn(bars: number) {
+    countIn = bars;
+    await act({ type: "set_count_in", bars });
+  }
 </script>
 
 {#if p}
   <div class="set">
     <section>
-      <div class="group">project</div>
+      <div class="group">sets</div>
+      <div class="sets" role="list">
+        {#each app.sets as s (s.id)}
+          <div class="row" class:open={s.id === app.set} role="listitem">
+            <button class="plain pick" aria-current={s.id === app.set} onclick={() => openSet(s.id)}>
+              <span class="sname">{s.name.toLowerCase()}</span>
+              <span class="label">{s.bpm} bpm · {s.tracks} tracks · {when(s.updated)}</span>
+            </button>
+            {#if removing === s.id}
+              <button
+                onclick={() => {
+                  removing = null;
+                  void removeSet(s.id);
+                }}>remove for good</button
+              >
+              <button onclick={() => (removing = null)}>keep</button>
+            {:else}
+              <button aria-label="copy {s.name}" onclick={() => duplicateSet(s.id)}>copy</button>
+              <button aria-label="remove {s.name}" onclick={() => (removing = s.id)}>remove</button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+      <div class="line wrap">
+        <button onclick={newSet}>new set</button>
+        <button onclick={openFile}>open a file</button>
+        <button onclick={saveFile}>save this set to a file</button>
+      </div>
+      <div class="line wrap">
+        <span class="label">listen to a demo</span>
+        {#each DEMOS as [file, name]}
+          <button onclick={() => openDemo(file)}>{name}</button>
+        {/each}
+      </div>
+    </section>
+
+    <section>
+      <div class="group">this set</div>
       <div class="line">
-        <input
-          type="text"
-          aria-label="name"
-          value={p.name}
-          onchange={(e) => act({ type: "set_name", name: e.currentTarget.value })}
-        />
+        <input type="text" aria-label="name" value={p.name} onchange={(e) => act({ type: "set_name", name: e.currentTarget.value })} />
       </div>
       <div class="knobs">
         <Knob
@@ -72,16 +136,6 @@
           <button aria-label="faster" onclick={() => act({ type: "set_bpm", bpm: p.bpm + 1 })}>+</button>
         </div>
       </div>
-      <div class="line">
-        <button
-          aria-pressed={app.status?.metronome ?? false}
-          onclick={() => live({ type: "set_metronome", on: !app.status?.metronome })}>metronome</button
-        >
-      </div>
-    </section>
-
-    <section>
-      <div class="group">key</div>
       <div class="roots">
         {#each NOTE_NAMES as n, i}
           <button aria-pressed={p.scale.root === i} onclick={() => scale(i, p.scale.kind)}>{n}</button>
@@ -89,30 +143,22 @@
       </div>
       <div class="line wrap">
         {#each kinds as k}
-          <button aria-pressed={p.scale.kind === k.id} onclick={() => scale(p.scale.root, k.id)}>
-            {k.label.toLowerCase()}
-          </button>
+          <button aria-pressed={p.scale.kind === k.id} onclick={() => scale(p.scale.root, k.id)}>{k.label.toLowerCase()}</button>
         {/each}
       </div>
     </section>
 
     <section>
-      <div class="group">master</div>
-      <div class="knobs">
-        <Knob value={p.master.volume} label="volume" reset={0.8} onchange={(v) => master("volume", v)} />
-        <Knob value={p.master.tape} label="tape" reset={0} onchange={(v) => master("tape", v)} />
-        <Knob value={p.master.vinyl} label="vinyl" reset={0} onchange={(v) => master("vinyl", v)} />
-        <Knob value={p.master.warmth} label="warmth" reset={0} onchange={(v) => master("warmth", v)} />
-      </div>
-    </section>
-
-    <section>
-      <div class="group">files</div>
+      <div class="group">recording</div>
       <div class="line wrap">
-        <button onclick={saveFile}>save file</button>
-        <button onclick={openFile}>open file</button>
-        <button onclick={() => replaceProject("new_project")}>new</button>
-        <button onclick={() => replaceProject("open_demo")}>open the demo</button>
+        <button aria-pressed={app.status?.metronome ?? false} onclick={() => live({ type: "set_metronome", on: !app.status?.metronome })}>
+          metronome
+        </button>
+        <button aria-pressed={p.record.quantize} onclick={() => record({ quantize: !p.record.quantize })}>snap to the grid</button>
+        <span class="label">count in</span>
+        {#each [0, 1, 2] as b}
+          <button aria-pressed={countIn === b} onclick={() => setCountIn(b)}>{b === 0 ? "none" : `${b} bar${b > 1 ? "s" : ""}`}</button>
+        {/each}
       </div>
     </section>
 
@@ -121,8 +167,11 @@
       <div class="line wrap">
         <button aria-pressed={theme === "dark"} onclick={() => setTheme("dark")}>dark</button>
         <button aria-pressed={theme === "paper"} onclick={() => setTheme("paper")}>paper</button>
-        <span class="label">output</span>
-        <span>{Math.round(engine.sampleRate() / 100) / 10} kHz · {engine.latencyMs()} ms</span>
+        <button onclick={() => (app.help = true)}>how to play</button>
+      </div>
+      <div class="line wrap readings">
+        <span><span class="label">output</span> {Math.round(engine.sampleRate() / 100) / 10} kHz · {engine.latencyMs()} ms</span>
+        <span><span class="label">midi</span> {app.midi.length ? app.midi.join(", ").toLowerCase() : "no controller"}</span>
       </div>
     </section>
   </div>
@@ -155,11 +204,47 @@
   .line input {
     flex: 1;
   }
+  .readings {
+    gap: 4px 20px;
+  }
+  .sets {
+    display: flex;
+    flex-direction: column;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    min-height: 44px;
+  }
+  .row.open {
+    box-shadow: inset 2px 0 0 var(--fg);
+  }
+  .pick {
+    flex: 1;
+    min-width: 0;
+    height: auto;
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .sname {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row.open .sname {
+    font: var(--ui-strong);
+  }
   .knobs {
     display: flex;
     flex-wrap: wrap;
     gap: 12px 20px;
     align-items: center;
+    margin-top: 12px;
   }
   .tempo {
     display: flex;
@@ -176,6 +261,7 @@
     display: grid;
     grid-template-columns: repeat(12, 1fr);
     gap: 2px;
+    margin-top: 12px;
   }
   .roots button {
     padding: 0;

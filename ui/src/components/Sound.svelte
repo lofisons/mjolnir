@@ -2,7 +2,7 @@
   // The sound face: which sound, its seven macros, and, once opened, every
   // part of the synth as a knob.
   import Knob from "./Knob.svelte";
-  import { app, act, live, track, setInstrument, selectTrack } from "../lib/app.svelte";
+  import { app, act, live, track, setInstrument, selectTrack, sampleFromFile, addSample, engine } from "../lib/app.svelte";
   import { MACROS, type InstrumentSpec, type ParamSpec } from "../lib/api";
 
   const t = $derived(track());
@@ -26,6 +26,13 @@
         open: k.category === "synth kits",
       }));
     return [
+      ...(catalog.macro_sounds ?? []).map((k) => ({
+        label: k.label,
+        category: k.category ?? "keys",
+        spec: { type: "macro", name: k.label, patch: { ...k.patch } } as InstrumentSpec,
+        octave: k.octave,
+        open: true,
+      })),
       ...catalog.presets.map((k) => ({
         label: k.label,
         category: k.category ?? "keys",
@@ -42,15 +49,17 @@
       })),
     ];
   });
-  const ORDER = ["from the tracks", "synth kits", "chops", "bass", "keys", "pads", "leads"];
-  const categories = $derived(
-    [...new Set(choices.map((c) => c.category))].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)),
-  );
+  const ORDER = ["from the tracks", "synth kits", "chops", "bass", "keys", "pads", "leads", "yours"];
+  const categories = $derived([
+    ...[...new Set(choices.map((c) => c.category))].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)),
+    "yours",
+  ]);
   const current = $derived.by(() => {
     const i = t?.instrument;
     if (!i) return -1;
     return choices.findIndex(
       (c) =>
+        (i.type === "macro" && c.spec.type === "macro" && c.spec.name === i.name) ||
         (i.type === "drums" && c.spec.type === "drums" && c.spec.kit === i.kit) ||
         (i.type === "synth" && c.spec.type === "synth" && c.spec.preset === i.preset) ||
         (i.type === "granular" && c.spec.type === "granular" && c.spec.texture === i.texture),
@@ -59,16 +68,25 @@
   const name = $derived.by(() => {
     const i = t?.instrument;
     if (!i) return "";
-    if (i.type === "custom_synth" || i.type === "custom_kit") return i.name;
+    if (i.type === "custom_synth" || i.type === "custom_kit" || i.type === "macro") return i.name;
+    if (i.type === "sample_melodic" || i.type === "sample_kit" || (i.type === "granular" && i.sample != null)) return t?.name ?? "sample";
     return choices[current]?.label ?? i.type;
   });
+  const mine = $derived.by(() => {
+    const i = t?.instrument;
+    return i?.type === "sample_melodic" || i?.type === "sample_kit" || (i?.type === "granular" && i.sample != null);
+  });
   /** Only a synth has parts to open; a recording is what it is. */
-  const openable = $derived(choices[current]?.open ?? false);
-  const designed = $derived(t?.instrument.type === "custom_synth" || t?.instrument.type === "custom_kit");
+  const openable = $derived((choices[current]?.open ?? false) && t?.instrument.type !== "macro");
+  const designed = $derived(
+    t?.instrument.type === "custom_synth" || t?.instrument.type === "custom_kit" || t?.instrument.type === "macro",
+  );
 
   // the shelf on screen: the current sound's own, until another is picked
   let picked = $state<string | null>(null);
-  const shelf = $derived(picked && categories.includes(picked) ? picked : (choices[current]?.category ?? categories[0]));
+  const shelf = $derived(
+    picked && categories.includes(picked) ? picked : mine ? "yours" : (choices[current]?.category ?? categories[0]),
+  );
   $effect(() => {
     // another track: back to its own shelf
     void app.track;
@@ -82,8 +100,36 @@
   const macroValue = (i: number) => app.status?.tracks[app.track]?.macros[i] ?? t?.macros[i] ?? 0;
   const macroLabel = (id: string) => (catalog?.macros.find((m) => m.id === id)?.label ?? id).toLowerCase();
 
+  // your own sounds: a file, or the microphone
+  type Mode = "melodic" | "kit" | "granular";
+  let mode = $state<Mode>("melodic");
+  $effect(() => {
+    mode = drums ? "kit" : "melodic";
+  });
+  let taking = $state<{ stop: () => Promise<AudioBuffer> } | null>(null);
+  const canRecord = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+  async function recordToggle() {
+    if (taking) {
+      const t = taking;
+      taking = null;
+      try {
+        await addSample(await t.stop(), mode, "recording", app.track);
+      } catch {
+        app.note = "the recording could not be read";
+      }
+      return;
+    }
+    try {
+      taking = await engine.record();
+    } catch {
+      app.note = "the microphone is not available here → use a file";
+    }
+  }
+
   // the designed sound: its parameters, from the engine's own table
-  const specs = $derived((drums ? catalog?.drum_params : catalog?.synth_params) ?? []);
+  const specs = $derived(
+    (t?.instrument.type === "macro" ? catalog?.macro_params : drums ? catalog?.drum_params : catalog?.synth_params) ?? [],
+  );
   const groups = $derived.by(() => {
     const out: { name: string; params: ParamSpec[] }[] = [];
     for (const p of specs) {
@@ -95,7 +141,7 @@
   });
   const patch = $derived.by((): Record<string, number> | null => {
     const i = t?.instrument;
-    if (i?.type === "custom_synth") return i.patch;
+    if (i?.type === "custom_synth" || i?.type === "macro") return i.patch;
     if (i?.type === "custom_kit") return i.pads[app.pad] ?? null;
     return null;
   });
@@ -134,11 +180,34 @@
         <button role="tab" aria-selected={shelf === c} onclick={() => (picked = c)}>{c}</button>
       {/each}
     </div>
-    <div class="shelf" role="listbox" aria-label="sounds">
-      {#each choices.filter((c) => c.category === shelf) as c}
-        <button role="option" aria-selected={c.label === name} onclick={() => choose(c)}>{c.label.toLowerCase()}</button>
-      {/each}
-    </div>
+    {#if shelf === "yours"}
+      <div class="yours">
+        <div class="tools">
+          <span class="label">play it</span>
+          {#if !drums}
+            <button aria-pressed={mode === "melodic"} onclick={() => (mode = "melodic")}>across the keys</button>
+            <button aria-pressed={mode === "granular"} onclick={() => (mode = "granular")}>as grains</button>
+          {:else}
+            <button aria-pressed={mode === "kit"} onclick={() => (mode = "kit")}>sliced on the pads</button>
+          {/if}
+        </div>
+        <div class="tools">
+          <button onclick={() => sampleFromFile(mode, app.track)}>from a file</button>
+          {#if canRecord}
+            <button class="lit" aria-pressed={!!taking} onclick={recordToggle}>
+              <span class="led" class:rd={!!taking} class:blink={!!taking}></span>{taking ? "stop and keep" : "record the microphone"}
+            </button>
+          {/if}
+        </div>
+        <span class="label">up to twenty seconds; it replaces this track's sound</span>
+      </div>
+    {:else}
+      <div class="shelf" role="listbox" aria-label="sounds">
+        {#each choices.filter((c) => c.category === shelf) as c}
+          <button role="option" aria-selected={c.label === name} onclick={() => choose(c)}>{c.label.toLowerCase()}</button>
+        {/each}
+      </div>
+    {/if}
 
     <div class="knobs">
       {#each MACROS as m, i}
@@ -229,6 +298,16 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
     gap: 4px;
+  }
+  .yours {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
   .shelf button {
     text-align: left;

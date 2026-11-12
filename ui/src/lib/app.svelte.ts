@@ -4,10 +4,12 @@
 import type { Action, Info, PadInfo, Pattern, Project, Status } from "./api";
 import { TICKS_PER_STEP, barTicks } from "./api";
 import * as engine from "./engine";
+import * as library from "./library";
 
-export type Face = "loops" | "song" | "set";
+export type Face = "loops" | "song" | "mix" | "set";
 export type Pane = "notes" | "sound";
 const RECOVERY = "mjolnir.recovery";
+const CURRENT = "mjolnir.set";
 
 export const app = $state({
   ready: false,
@@ -35,6 +37,16 @@ export const app = $state({
   /** Sound is running (it needs a first touch). */
   awake: false,
   busy: "",
+  /** The set on screen: its id in this browser's library. */
+  set: "",
+  sets: [] as library.SetInfo[],
+  /** The note whose detail is on screen. */
+  pick: null as { start: number; pitch: number } | null,
+  /** The punch strip is out. */
+  punch: false,
+  help: false,
+  /** Connected MIDI controllers. */
+  midi: [] as string[],
 });
 
 /** The picture of the signal: not reactive, the screen reads it every frame. */
@@ -80,10 +92,29 @@ export async function start(): Promise<void> {
   try {
     await engine.boot();
     app.info = await engine.call<Info>({ type: "info" });
+    // the set that was open last time; older versions kept a single copy elsewhere
     let project: Project | undefined;
-    const saved = safe(() => localStorage.getItem(RECOVERY));
+    app.set = safe(() => localStorage.getItem(CURRENT)) ?? "";
+    let saved = app.set ? await library.loadSet(app.set) : null;
+    const old = safe(() => localStorage.getItem(RECOVERY));
+    if (!saved && old) {
+      saved = old;
+      app.set = library.newId();
+      await library.saveSet(app.set, old).catch(() => {});
+      safe(() => localStorage.removeItem(RECOVERY));
+    }
     if (saved) project = await engine.call<Project>({ type: "open_project", json: saved }).catch(() => undefined);
-    app.project = project ?? (await engine.call<Project>({ type: "get_project" }));
+    if (!project) {
+      app.set = library.newId();
+      project = await engine.call<Project>({ type: "get_project" });
+      unsaved = true;
+    }
+    safe(() => localStorage.setItem(CURRENT, app.set));
+    app.project = project;
+    // a set seen for the first time goes straight into the library
+    if (unsaved) void keepNow();
+    else void refreshSets();
+    void listenMidi();
     await refreshPads();
     engine.onStatus((s, scope) => {
       app.status = s;
@@ -111,12 +142,188 @@ function safe<T>(f: () => T): T | null {
   }
 }
 
-/** Keep a copy of the work in this browser, so a closed tab loses nothing. */
+/** Keep the set in this browser's library, so a closed tab loses nothing. */
 async function keep(): Promise<void> {
   if (!unsaved || app.status?.playing) return;
   unsaved = false;
   const r = await engine.call<{ json: string }>({ type: "snapshot" }).catch(() => null);
-  if (r) safe(() => localStorage.setItem(RECOVERY, r.json));
+  if (!r) return;
+  await library.saveSet(app.set, r.json).catch(() => (app.note = "this browser would not keep the set → save it to a file"));
+  void refreshSets();
+}
+
+export async function refreshSets(): Promise<void> {
+  app.sets = await library.listSets();
+}
+
+async function show(json: string | null, id: string): Promise<void> {
+  // what is on screen first goes to the library
+  unsaved = true;
+  const wasPlaying = app.status?.playing;
+  if (wasPlaying) await act({ type: "stop" });
+  await keepNow();
+  if (json) await act({ type: "open_project", json });
+  else await act({ type: "new_project" });
+  app.set = id;
+  safe(() => localStorage.setItem(CURRENT, id));
+  app.track = 0;
+  app.section = 0;
+  app.open = false;
+  unsaved = true;
+  await refreshPads();
+  await keepNow();
+}
+
+async function keepNow(): Promise<void> {
+  const r = await engine.call<{ json: string }>({ type: "snapshot" }).catch(() => null);
+  if (r) await library.saveSet(app.set, r.json).catch(() => {});
+  unsaved = false;
+  await refreshSets();
+}
+
+/** Open another set from the library. */
+export async function openSet(id: string): Promise<void> {
+  if (id === app.set) return;
+  const json = await library.loadSet(id);
+  if (json) await show(json, id);
+}
+
+export const newSet = () => show(null, library.newId());
+
+/** Open a project given as text (a file, a demo) as a new set. */
+export const openText = (json: string) => show(json, library.newId());
+
+export async function duplicateSet(id: string): Promise<void> {
+  if (id === app.set) await keepNow();
+  const json = await library.loadSet(id);
+  if (!json) return;
+  try {
+    const file = JSON.parse(json);
+    file.project.name = `${file.project.name} copy`;
+    await library.saveSet(library.newId(), JSON.stringify(file));
+  } catch {
+    app.note = "that set could not be copied";
+  }
+  await refreshSets();
+}
+
+export async function removeSet(id: string): Promise<void> {
+  await library.deleteSet(id);
+  await refreshSets();
+  if (id !== app.set) return;
+  // the open set was removed: open the next one, or a fresh one
+  const next = app.sets[0];
+  const json = next ? await library.loadSet(next.id) : null;
+  app.set = next?.id ?? library.newId();
+  safe(() => localStorage.setItem(CURRENT, app.set));
+  if (json) await act({ type: "open_project", json });
+  else await act({ type: "new_project" });
+  app.track = 0;
+  app.section = 0;
+  app.open = false;
+  await refreshPads();
+  await keepNow();
+}
+
+/** MIDI controllers play the selected track. */
+async function listenMidi(): Promise<void> {
+  const nav = navigator as Navigator & { requestMIDIAccess?: () => Promise<MIDIAccess> };
+  if (!nav.requestMIDIAccess) return;
+  try {
+    const access = await nav.requestMIDIAccess();
+    const wire = () => {
+      const names: string[] = [];
+      access.inputs.forEach((input) => {
+        names.push(input.name ?? "controller");
+        input.onmidimessage = (e) => {
+          if (e.data && e.data.length >= 2) live({ type: "midi", bytes: Array.from(e.data) });
+        };
+      });
+      app.midi = names;
+    };
+    wire();
+    access.onstatechange = wire;
+  } catch {
+    /* MIDI is not allowed here */
+  }
+}
+
+/** Hold or let go a punch effect. */
+export function punch(effect: string, on: boolean): void {
+  live({ type: "punch", effect, on });
+}
+
+/** Keep what was just played on the track as its loop for this section. */
+export async function capture(): Promise<void> {
+  const free = !pattern();
+  const r = await act<{ slot: number }>({ type: "capture", track: app.track, slot: free ? app.section : undefined });
+  if (r && typeof r.slot === "number") app.section = Math.min(r.slot, (app.project?.scenes.length ?? 1) - 1);
+}
+
+/** 16-bit mono WAV, as base64, from samples at `rate`. */
+function wavBase64(samples: Float32Array, rate: number): string {
+  const bytes = new Uint8Array(44 + samples.length * 2);
+  const v = new DataView(bytes.buffer);
+  const text = (at: number, s: string) => [...s].forEach((c, i) => v.setUint8(at + i, c.charCodeAt(0)));
+  text(0, "RIFF");
+  v.setUint32(4, 36 + samples.length * 2, true);
+  text(8, "WAVEfmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  text(36, "data");
+  v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, samples[i])) * 32767, true);
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(out);
+}
+
+/** Longest recording a sound keeps, and the rate it is kept at. */
+const SAMPLE_SECONDS = 20;
+const SAMPLE_RATE = 32000;
+
+/** Turn decoded audio into a sound on a new track (or on `onTrack`). */
+export async function addSample(
+  audio: AudioBuffer,
+  mode: "melodic" | "kit" | "granular",
+  name: string,
+  onTrack?: number,
+): Promise<void> {
+  // to mono, at the rate sounds are kept at
+  const length = Math.min(audio.length, Math.round(SAMPLE_SECONDS * audio.sampleRate));
+  const mono = new Float32Array(length);
+  for (let c = 0; c < audio.numberOfChannels; c++) {
+    const d = audio.getChannelData(c);
+    for (let i = 0; i < length; i++) mono[i] += d[i] / audio.numberOfChannels;
+  }
+  const ratio = audio.sampleRate / SAMPLE_RATE;
+  const out = new Float32Array(Math.floor(length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const x = i * ratio;
+    const k = Math.floor(x);
+    out[i] = mono[k] + ((mono[Math.min(length - 1, k + 1)] ?? 0) - mono[k]) * (x - k);
+  }
+  const before = app.project?.tracks.length ?? 0;
+  await act({ type: "add_sample", wav: wavBase64(out, SAMPLE_RATE), mode, track: onTrack, name });
+  if (onTrack === undefined && (app.project?.tracks.length ?? 0) > before) await openCell(before, app.section);
+  else await refreshPads();
+}
+
+/** Ask for an audio file and make a sound of it. */
+export async function sampleFromFile(mode: "melodic" | "kit" | "granular", onTrack?: number): Promise<void> {
+  const file = await engine.pickFile("audio/*,.wav,.mp3,.m4a,.ogg,.flac,.aif,.aiff");
+  if (!file) return;
+  try {
+    const audio = await engine.decode(await file.arrayBuffer());
+    await addSample(audio, mode, file.name.replace(/\.[^.]+$/, "").slice(0, 24), onTrack);
+  } catch {
+    app.note = "that file could not be read as sound → try a WAV or an MP3";
+  }
 }
 
 export async function refreshPads(): Promise<void> {
@@ -133,6 +340,7 @@ export const playing = () => app.status?.playing ?? false;
 
 export async function selectTrack(i: number): Promise<void> {
   app.track = i;
+  app.pick = null;
   app.pad = 0;
   app.page = 0;
   live({ type: "select_track", track: i, slot: app.section });
@@ -155,6 +363,7 @@ export const trackColor = (t: { id: number } | null | undefined): string =>
 
 export async function selectSection(s: number): Promise<void> {
   app.section = s;
+  app.pick = null;
   app.page = 0;
   if (playing() && !app.status?.song_mode) await act({ type: "launch_scene", scene: s });
 }
@@ -164,7 +373,12 @@ export async function toggleStep(step: number): Promise<void> {
   const t = app.track;
   const s = app.section;
   if (!pattern(t, s)) await act({ type: "create_pattern", track: t, slot: s, bars: 1 });
-  await act({ type: "toggle_step", track: t, slot: s, step, pitch: padPitch(), velocity: 0.8 });
+  const pitch = padPitch();
+  const start = step * TICKS_PER_STEP;
+  await act({ type: "toggle_step", track: t, slot: s, step, pitch, velocity: 0.8 });
+  // a step just switched on is the one whose detail shows
+  const on = pattern(t, s)?.notes.some((n) => n.start === start && n.pitch === pitch);
+  app.pick = on ? { start, pitch } : null;
   await hear(t, s);
 }
 
@@ -295,18 +509,17 @@ export async function saveFile(): Promise<void> {
 
 export async function openFile(): Promise<void> {
   const json = await engine.pickText(".mjolnir,.yggdrasil,.tinydaw,.json,application/json");
-  if (!json) return;
-  await act({ type: "open_project", json });
-  app.track = 0;
-  app.section = 0;
-  await refreshPads();
+  if (json) await openText(json);
 }
 
-export async function replaceProject(type: "new_project" | "open_demo"): Promise<void> {
-  await act({ type });
-  app.track = 0;
-  app.section = 0;
-  await refreshPads();
+/** Open one of the sets that ship with the app. */
+export async function openDemo(file: string): Promise<void> {
+  try {
+    const json = await (await fetch(new URL(`demos/${file}`, document.baseURI).href)).text();
+    await openText(json);
+  } catch {
+    app.note = "the demo could not be loaded";
+  }
 }
 
 const fileName = () => (app.project?.name || "beat").replace(/[^\w\- ]+/g, "").trim() || "beat";

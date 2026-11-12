@@ -6,9 +6,12 @@
   import Song from "./components/Song.svelte";
   import Sound from "./components/Sound.svelte";
   import Setup from "./components/Setup.svelte";
+  import Mix from "./components/Mix.svelte";
+  import Punch from "./components/Punch.svelte";
+  import Help from "./components/Help.svelte";
   import { app, act, start, togglePlay, toggleRecord, playing, engine, type Face } from "./lib/app.svelte";
 
-  const FACES: Face[] = ["loops", "song", "set"];
+  const FACES: Face[] = ["loops", "song", "mix", "set"];
   let wide = $state(false);
 
   onMount(() => {
@@ -60,6 +63,10 @@
     } else if (mod && e.key.toLowerCase() === "z") {
       e.preventDefault();
       void act({ type: e.shiftKey ? "redo" : "undo" });
+    } else if (e.key === "?") {
+      app.help = !app.help;
+    } else if (e.key === "Escape" && app.help) {
+      app.help = false;
     } else if (e.key === "Escape" && app.open) {
       app.open = false;
     } else if (e.key === "Tab" && !mod) {
@@ -97,6 +104,7 @@
         {#if app.face === "loops" && app.open}<Track {wide} />
         {:else if app.face === "loops"}<div class="from-left fill"><Loops /></div>
         {:else if app.face === "song"}<div class="from-right fill"><Song /></div>
+        {:else if app.face === "mix"}<div class="from-right fill"><Mix /></div>
         {:else}<div class="from-right fill"><Setup /></div>{/if}
       </main>
     </div>
@@ -105,9 +113,12 @@
       <aside class="panel"><Sound /></aside>
     {/if}
 
+    {#if app.punch}<div class="punchbar"><Punch /></div>{/if}
+
     <footer class="status">
       <span class="sentence" role="status" class:warn={!!app.note}>{sentence}</span>
       <button class="plain" disabled={!app.project?.history.undo} onclick={() => act({ type: "undo" })}>undo</button>
+      <button aria-pressed={app.punch} onclick={() => (app.punch = !app.punch)}>fx</button>
       <button class="lit" aria-pressed={app.project?.record.notes ?? false} onclick={toggleRecord}>
         <span class="led" class:rd={app.project?.record.notes} class:blink={recording}></span>rec
       </button>
@@ -117,6 +128,7 @@
     </footer>
   </div>
 {/if}
+{#if app.help}<Help />{/if}
 
 <style>
   .failed {
@@ -126,7 +138,7 @@
   .shell {
     height: 100%;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
     grid-template-columns: minmax(0, 1fr);
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
@@ -183,8 +195,13 @@
     min-height: 0;
     overflow: hidden;
   }
+  .punchbar {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
   .status {
     grid-column: 1 / -1;
+    grid-row: 4;
     display: flex;
     align-items: center;
     gap: 4px;

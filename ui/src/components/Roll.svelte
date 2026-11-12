@@ -1,7 +1,8 @@
 <script lang="ts">
   // The piano roll: the loop's notes, pitch up the side and time across.
   // Touch empty space to write a note (a chord, when chords are on); drag a
-  // note to move it, its right edge to stretch it; touch a note to remove it.
+  // note to move it, its right edge to stretch it; touch a note to pick it,
+  // double click it to remove it.
   import { onMount } from "svelte";
   import { app, act, live, pattern, track, writeNote, trackColor } from "../lib/app.svelte";
   import { TICKS_PER_STEP, noteName, scalePitches, chordOn, type Note, capture } from "../lib/api";
@@ -106,11 +107,15 @@
     drag = null;
     const where = { track: app.track, slot: app.section, start: d.note.start, pitch: d.note.pitch };
     if (!d.moved) {
-      await act({ type: "remove_note", ...where });
+      // a touch picks the note (its detail shows below); a second touch lets it go
+      const same = app.pick?.start === d.note.start && app.pick?.pitch === d.note.pitch;
+      app.pick = same ? null : { start: d.note.start, pitch: d.note.pitch };
+      if (!same) blip([d.note.pitch]);
       return;
     }
     app.noteLen = Math.max(1, Math.round(d.length / TICKS_PER_STEP));
     await act({ type: "move_note", ...where, note: { ...d.note, start: d.start, length: d.length, pitch: d.pitch } });
+    app.pick = { start: d.start, pitch: d.pitch };
   }
   const shown = (n: Note) => (drag && drag.note === n ? { ...n, start: drag.start, length: drag.length, pitch: drag.pitch } : n);
 </script>
@@ -135,7 +140,8 @@
         {#if row >= 0}
           <div
             class="note"
-            class:held={drag?.note === n}
+            class:held={drag?.note === n || (app.pick?.start === n.start && app.pick?.pitch === n.pitch)}
+            ondblclick={() => act({ type: "remove_note", track: app.track, slot: app.section, start: n.start, pitch: n.pitch })}
             role="button"
             tabindex="-1"
             aria-label="{noteName(v.pitch)} at step {Math.round(v.start / TICKS_PER_STEP) + 1}"

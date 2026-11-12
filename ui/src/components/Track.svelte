@@ -4,7 +4,7 @@
   import Play from "./Play.svelte";
   import Melodic from "./Melodic.svelte";
   import Sound from "./Sound.svelte";
-  import { app, selectTrack, selectSection, trackColor, track } from "../lib/app.svelte";
+  import { app, selectTrack, selectSection, trackColor, track, capture } from "../lib/app.svelte";
 
   let { wide = false }: { wide?: boolean } = $props();
   const tracks = $derived(app.project?.tracks ?? []);
@@ -37,6 +37,7 @@
         </button>
       {/each}
     </div>
+    <button class="keep" title="keep what you just played as this loop" onclick={capture}>capture</button>
     {#if !wide}
       <div class="panes" role="tablist" aria-label="view">
         <button role="tab" aria-selected={app.pane === "notes"} onclick={() => (app.pane = "notes")}>notes</button>
@@ -113,10 +114,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .keep {
+    flex: none;
+    align-self: center;
+    height: calc(var(--row) - 8px);
+    min-height: 24px;
+    margin: 0 4px 0 8px;
+    padding: 0 8px;
+  }
   .panes {
     flex: none;
     display: flex;
-    padding: 0 16px 0 8px;
+    padding: 0 16px 0 0;
     align-items: center;
   }
   .panes button {

@@ -1710,9 +1710,9 @@ impl Controller {
         };
         let idx = self.add_track(kind, spec)?;
         self.project.tracks[idx].name = match mode {
-            SampleMode::Kit => format!("Kit mic #{sample}"),
-            SampleMode::Melodic => format!("Mic #{sample}"),
-            SampleMode::Granular => format!("Textura mic #{sample}"),
+            SampleMode::Kit => format!("Slices {sample}"),
+            SampleMode::Melodic => format!("Sample {sample}"),
+            SampleMode::Granular => format!("Grains {sample}"),
         };
         Ok(idx)
     }

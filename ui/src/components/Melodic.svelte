@@ -4,6 +4,7 @@
   // play: a keyboard, or pads of the key's notes (chords, when chords are on).
   import Roll from "./Roll.svelte";
   import Keys from "./Keys.svelte";
+  import NoteDetail from "./NoteDetail.svelte";
   import { app, act, live, pattern, setBars, refreshPads, track } from "../lib/app.svelte";
   import type { ChordKind } from "../lib/api";
 
@@ -62,6 +63,8 @@
 
     <div class="roll"><Roll /></div>
 
+    <NoteDetail />
+
     <div class="head">
       <span class="group">
         <button class="mini" aria-pressed={app.surface === "keys"} onclick={() => (app.surface = "keys")}>keys</button>
@@ -106,7 +109,7 @@
 <style>
   .melodic {
     display: grid;
-    grid-template-rows: auto minmax(0, 1.25fr) auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1.25fr) auto auto minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
     padding: 8px 16px 12px;

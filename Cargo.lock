@@ -469,6 +469,7 @@ dependencies = [
 name = "mjolnir-app"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "mjolnir-engine",
  "serde",
  "serde_json",

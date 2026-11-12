@@ -2,7 +2,7 @@
   // The screen: the signal itself, drawn as sand. Every point is a real
   // sample of what is sounding; older frames fade like a long exposure.
   import { onMount } from "svelte";
-  import { app, signal, track, playing } from "../lib/app.svelte";
+  import { app, signal, track, playing, trackColor } from "../lib/app.svelte";
 
   let canvas: HTMLCanvasElement;
   let box: HTMLDivElement;
@@ -12,17 +12,8 @@
     if (!s) return "1.1";
     return `${s.bar + 1}.${s.beat + 1}`;
   });
-  const sound = $derived.by(() => {
-    const t = track();
-    if (!t) return "";
-    const i = t.instrument;
-    const c = app.info?.catalog;
-    if (i.type === "drums") return c?.kits.find((k) => k.id === i.kit)?.label ?? i.kit;
-    if (i.type === "synth") return c?.presets.find((k) => k.id === i.preset)?.label ?? i.preset;
-    if (i.type === "granular") return c?.textures.find((k) => k.id === i.texture)?.label ?? i.texture;
-    if (i.type === "custom_synth" || i.type === "custom_kit") return i.name;
-    return "sample";
-  });
+  // what the selected track is called (its sound, unless it was renamed)
+  const sound = $derived(track()?.name ?? "");
 
   onMount(() => {
     const g = canvas.getContext("2d")!;
@@ -47,7 +38,7 @@
       raf = requestAnimationFrame(draw);
       const css = getComputedStyle(canvas);
       const bg = css.getPropertyValue("--bg").trim();
-      const fg = css.getPropertyValue("--fg").trim();
+      const fg = (app.open ? css.getPropertyValue("--trace").trim() : "") || css.getPropertyValue("--fg").trim();
       const faint = css.getPropertyValue("--fg-faint").trim();
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       // the long exposure: the last frames stay, each a little fainter
@@ -98,7 +89,7 @@
 </script>
 
 <div class="screen" bind:this={box}>
-  <canvas bind:this={canvas}></canvas>
+  <canvas bind:this={canvas} style="--trace: {trackColor(track())}"></canvas>
   <div class="tl">
     <span class="label">{String(app.track + 1).padStart(2, "0")}</span>
     <span>{sound.toLowerCase()}</span>
