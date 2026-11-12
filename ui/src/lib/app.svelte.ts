@@ -197,11 +197,15 @@ export async function setInstrument(spec: import("./api").InstrumentSpec): Promi
 
 export async function saveFile(): Promise<void> {
   const r = await act<{ json: string }>({ type: "save_project" });
-  if (r) engine.download(`${fileName()}.mjolnir`, r.json, "application/json");
+  if (!r) return;
+  const name = fileName();
+  await engine
+    .deliver([{ name: `${name}.mjolnir`, data: r.json, type: "application/json" }], name)
+    .catch((e) => (app.note = String(e)));
 }
 
 export async function openFile(): Promise<void> {
-  const json = await engine.pickText(".mjolnir,.yggdrasil,.tinydaw,application/json");
+  const json = await engine.pickText(".mjolnir,.yggdrasil,.tinydaw,.json,application/json");
   if (!json) return;
   await act({ type: "open_project", json });
   app.track = 0;
@@ -228,8 +232,11 @@ export async function exportSong(midi = false): Promise<void> {
   try {
     const r = await engine.call<{ json: string }>({ type: "snapshot" });
     const [wav, mid] = await engine.render(r.json, midi ? [0, -1] : [0]);
-    if (wav) engine.download(`${fileName()}.wav`, wav, "audio/wav");
-    if (mid) engine.download(`${fileName()}.mid`, mid, "audio/midi");
+    const name = fileName();
+    const files: engine.OutFile[] = [];
+    if (wav) files.push({ name: `${name}.wav`, data: wav, type: "audio/wav" });
+    if (mid) files.push({ name: `${name}.mid`, data: mid, type: "audio/midi" });
+    await engine.deliver(files, name);
   } catch (e) {
     app.note = String(e);
   }

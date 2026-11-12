@@ -101,7 +101,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding: 8px 12px 12px;
+    padding: 8px 16px 12px;
     height: 100%;
     overflow-y: auto;
   }

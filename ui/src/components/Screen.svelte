@@ -145,20 +145,20 @@
   }
   .tl {
     top: 8px;
-    left: 12px;
+    left: 16px;
   }
   .tr {
     top: 8px;
-    right: 12px;
+    right: 16px;
   }
   .bl {
     bottom: 8px;
-    left: 12px;
+    left: 16px;
     align-items: center;
   }
   .br {
     bottom: 8px;
-    right: 12px;
+    right: 16px;
   }
   .quiet {
     color: var(--fg-muted);

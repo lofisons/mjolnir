@@ -162,7 +162,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 8px 12px 16px;
+    padding: 8px 16px 16px;
     height: 100%;
     overflow-y: auto;
   }

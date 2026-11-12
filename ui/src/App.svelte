@@ -166,7 +166,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 12px;
+    padding: 0 16px;
     border-bottom: 1px solid var(--line);
     min-height: var(--row);
   }
@@ -208,6 +208,9 @@
     gap: 6px;
     padding: 0 8px;
     border-right: 1px solid var(--line);
+  }
+  .track:first-child {
+    padding-left: 16px;
     text-align: left;
   }
   .sections .track {
@@ -253,7 +256,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 12px;
+    padding: 4px 16px;
     border-top: 1px solid var(--line);
   }
   .sentence {
