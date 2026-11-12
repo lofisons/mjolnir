@@ -41,16 +41,15 @@ pnpm check
 
 ## Play it
 
-- **play**: touch a pad to hear it and select it; the sixteen step keys write it into the loop. `rec` records what you play.
-- **clips**: tracks across, sections down. A row plays together.
-- **song**: add sections to the end of the timeline; export WAV and MIDI.
-- **sound**: step through sounds, turn the seven macros, or open the sound and edit every part of it.
+- **loops** is home: tracks across, sections down, each track in its own colour. Touch `+` to step into an empty loop; touch a loop to pick it, and again to step in. A section's letter plays its row.
+- **inside a track**: touch a pad to hear it and select it; the sixteen step keys write it into the loop; `rec` records what you play. `sound` steps through sounds, turns the seven macros, or opens the sound to edit every part of it.
+- **song**: one lane per track. Pick a section and touch a lane to place that loop; drag a clip to move it; export WAV and MIDI.
 - **set**: tempo, swing, key, the master's tape, files.
 
-Keys: `space` plays and stops, `z x c v / a s d f / q w e r / 1 2 3 4` are the pads, `tab` changes face, `ctrl z` undoes.
+Keys: `space` plays and stops, `z x c v / a s d f / q w e r / 1 2 3 4` are the pads, `esc` goes back to the loops, `tab` changes face, `ctrl z` undoes.
 
 Work is kept in the browser between visits; `save file` writes a `.mjolnir` file you own.
 
 ## Where it comes from
 
-The engine was written for Yggdrasil and is carried over whole; Yggdrasil's project files (`.yggdrasil`) open here. Samples: see [SAMPLES.md](SAMPLES.md). Code: MIT.
+The engine was written for Yggdrasil and is carried over whole; Yggdrasil's project files (`.yggdrasil`) open here. The Shadow and Session kits, the sampled basses and the airs are cut from lofisons' own tracks: see [SAMPLES.md](SAMPLES.md). Code: MIT.

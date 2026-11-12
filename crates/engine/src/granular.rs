@@ -38,6 +38,16 @@ fn params_for(texture: TextureKind, from_sample: bool) -> GrainParams {
         };
     }
     match texture {
+        // a passage of real pads: long grains, a slow walk through it, a
+        // little detune so held notes breathe
+        TextureKind::ShadowAir | TextureKind::SilentAir | TextureKind::SessionAir => GrainParams {
+            size: 0.28,
+            density: 12.0,
+            spread: 0.3,
+            scan: 0.12,
+            jitter_cents: 6.0,
+            gain: 0.55,
+        },
         TextureKind::Cloud => GrainParams {
             size: 0.18,
             density: 14.0,
@@ -116,9 +126,12 @@ impl Granular {
 
     /// Generate a built-in texture source at `sr`. Runs on the control thread.
     pub fn texture_source(texture: TextureKind, sr: f32) -> (Arc<SampleData>, u8) {
+        if let Some((name, root)) = texture.sampled() {
+            return (crate::library::tone(name), root);
+        }
         let (frames, root) = match texture {
-            TextureKind::Cloud => (cloud(sr), 60),
             TextureKind::Glass => (glass(sr), 72),
+            _ => (cloud(sr), 60),
         };
         (
             Arc::new(SampleData {

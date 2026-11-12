@@ -8,13 +8,27 @@
   const t = $derived(track());
   const catalog = $derived(app.info?.catalog);
   const drums = $derived(t?.kind === "drums");
-  const choices = $derived((drums ? catalog?.kits : catalog?.presets) ?? []);
+  /** Every sound this kind of track can wear, in the order the arrows step. */
+  const choices = $derived.by((): { label: string; spec: InstrumentSpec }[] => {
+    if (!catalog) return [];
+    if (drums) return catalog.kits.map((k) => ({ label: k.label, spec: { type: "drums", kit: k.id } }));
+    return [
+      ...catalog.presets.map((k) => ({ label: k.label, spec: { type: "synth", preset: k.id } as InstrumentSpec })),
+      ...catalog.textures.map((k) => ({
+        label: k.label,
+        spec: { type: "granular", texture: k.id, sample: null } as InstrumentSpec,
+      })),
+    ];
+  });
   const current = $derived.by(() => {
     const i = t?.instrument;
     if (!i) return -1;
-    if (i.type === "drums") return choices.findIndex((c) => c.id === i.kit);
-    if (i.type === "synth") return choices.findIndex((c) => c.id === i.preset);
-    return -1;
+    return choices.findIndex(
+      (c) =>
+        (i.type === "drums" && c.spec.type === "drums" && c.spec.kit === i.kit) ||
+        (i.type === "synth" && c.spec.type === "synth" && c.spec.preset === i.preset) ||
+        (i.type === "granular" && c.spec.type === "granular" && c.spec.texture === i.texture),
+    );
   });
   const name = $derived.by(() => {
     const i = t?.instrument;
@@ -22,14 +36,14 @@
     if (i.type === "custom_synth" || i.type === "custom_kit") return i.name;
     return choices[current]?.label ?? i.type;
   });
+  /** A texture is a recording played as grains: there is no synth inside to open. */
+  const openable = $derived(t?.instrument.type === "drums" || t?.instrument.type === "synth");
   const designed = $derived(t?.instrument.type === "custom_synth" || t?.instrument.type === "custom_kit");
 
   function step(d: number) {
     if (!choices.length) return;
     const i = (((current < 0 ? 0 : current + d) % choices.length) + choices.length) % choices.length;
-    const id = choices[i].id;
-    const spec: InstrumentSpec = drums ? { type: "drums", kit: id } : { type: "synth", preset: id };
-    void setInstrument(spec);
+    void setInstrument(choices[i].spec);
   }
 
   const macroValue = (i: number) => app.status?.tracks[app.track]?.macros[i] ?? t?.macros[i] ?? 0;
@@ -127,7 +141,7 @@
       <button disabled={(app.project?.tracks.length ?? 0) < 2} onclick={removeTrack}>remove track</button>
     </div>
 
-    {#if !designed}
+    {#if !designed && openable}
       <div class="tools">
         <button onclick={() => act({ type: "design_sound", track: app.track })}>open the sound</button>
       </div>

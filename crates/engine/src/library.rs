@@ -105,6 +105,38 @@ pub fn sampled_kit(kit: DrumKitId) -> Kit {
     .clone()
 }
 
+/// One recorded note or passage by name (the sampled basses and airs).
+pub fn tone(name: &str) -> Arc<SampleData> {
+    static CELL: OnceLock<Vec<(&'static str, Arc<SampleData>)>> = OnceLock::new();
+    let all = CELL.get_or_init(|| {
+        let files: [(&'static str, &[u8]); 6] = [
+            ("bass_shadow", asset!("bass_shadow")),
+            ("bass_silent", asset!("bass_silent")),
+            ("bass_session", asset!("bass_session")),
+            ("air_shadow", asset!("air_shadow")),
+            ("air_silent", asset!("air_silent")),
+            ("air_session", asset!("air_session")),
+        ];
+        files
+            .into_iter()
+            .map(|(name, bytes)| {
+                let s = from_wav_bytes(bytes).expect("built-in tone");
+                (
+                    name,
+                    Arc::new(SampleData {
+                        frames: s.frames,
+                        sample_rate: s.sample_rate,
+                    }),
+                )
+            })
+            .collect()
+    });
+    all.iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, s)| s.clone())
+        .unwrap_or_else(|| all[0].1.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

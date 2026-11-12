@@ -52,6 +52,7 @@
   .track {
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     height: 100%;
   }
   .head {
@@ -59,8 +60,10 @@
     align-items: stretch;
     border-bottom: 1px solid var(--line);
     min-height: var(--row);
+    min-width: 0;
   }
   .back {
+    flex: none;
     border: 0;
     border-right: 1px solid var(--line);
     padding: 0 12px 0 16px;
@@ -106,6 +109,7 @@
     text-overflow: ellipsis;
   }
   .panes {
+    flex: none;
     display: flex;
     padding: 0 16px 0 8px;
     align-items: center;

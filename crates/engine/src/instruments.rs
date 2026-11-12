@@ -41,6 +41,10 @@ impl Instrument {
                 crate::piano::ModalProfile::SOFT_PLUCK,
                 sr,
             )),
+            InstrumentSpec::Synth { preset } if preset.sampled().is_some() => {
+                let (name, root) = preset.sampled().unwrap();
+                Instrument::Sampler(Sampler::melodic(crate::library::tone(name), root, sr))
+            }
             InstrumentSpec::Synth { preset } => Instrument::Synth(Synth::new(*preset, sr)),
             InstrumentSpec::Drums { kit } if kit.sampled() => {
                 let (kit, slices) = crate::library::sampled_kit(*kit);
@@ -265,6 +269,10 @@ pub fn patch_for(p: SynthPreset) -> Patch {
         },
         // Procedural felt piano, built by `Instrument::build`; kept total for safety.
         SynthPreset::Piano => patch_for(SynthPreset::Rhodes),
+        // a sampled bass opens for design as the closest synth: the sub
+        SynthPreset::ShadowSub | SynthPreset::SilentSub | SynthPreset::SessionBass => {
+            patch_for(SynthPreset::SubBass)
+        }
         SynthPreset::SubBass => Patch {
             sub: 1.0,
             tri: 0.08,

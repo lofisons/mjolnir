@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Build the Shadow and Session drum kits from the author's own drum stems.
+"""Build Mjolnir's own sounds from the author's stems (lofisons tracks).
 
-The stems are lofisons tracks (drums-only mixes). Every hit is found, sorted
-into kick / snare / thud / hat / perc by where its energy sits, and for each
-pad the most typical hit that stands alone (nothing ringing before it, nothing
-landing on its tail) is cut out: mono, 16-bit, 32 kHz, faded, levelled.
+Drum kits (Shadow, Session): every hit in the drums-only mixes is found,
+sorted into kick / snare / thud / hat / perc by where its energy sits, and
+for each pad the most typical hit that stands alone (nothing ringing before
+it, nothing landing on its tail) is cut out: mono, 16-bit, 32 kHz.
 
-Usage:  python3 tools/build_stem_kits.py <folder of drum stems as 48 kHz mono wav>
+Basses: one clean, steady note from each bass stem, with its pitch.
+Airs: four seconds of each pad stem where the harmony holds still; the
+granular instrument plays them as drifting clouds.
+
+Usage:  python3 tools/build_stem_sounds.py <folder of stems as 48 kHz mono wav>
+        (drums as <Track>.wav, the others as <Track>__bass.wav, <Track>__other.wav)
 Needs:  numpy, librosa, soundfile
 """
 
@@ -138,6 +143,42 @@ def cut(y, h, peak, label):
     return seg / (np.abs(seg).max() + 1e-12) * peak
 
 
+# name -> (stem, start seconds, length seconds, peak). The times come from
+# listening with numbers: the longest steady single pitch with quiet before it
+# (basses), the four seconds whose harmony moves least (airs). The pitch of
+# each is in crates/engine/src/library.rs.
+TONES = {
+    "bass_shadow": ("Shadow_Ambient__bass", 85.54, 1.50, 0.42),
+    "bass_silent": ("Silent_Focus__bass", 53.86, 1.47, 0.42),
+    "bass_session": ("Modular_Code_Sessions_Vol__200__bass", 20.14, 2.30, 0.42),
+    "air_shadow": ("Shadow_Ambient__other", 107.83, 4.0, 0.7),
+    "air_silent": ("Silent_Focus__other", 59.91, 4.0, 0.7),
+    "air_session": ("Modular_Code_Sessions_Vol__200__other", 63.90, 4.0, 0.7),
+}
+TONE_RATE = 24000
+
+
+def tones(folder):
+    for name, (stem, start, length, peak) in TONES.items():
+        y, sr = sf.read(os.path.join(folder, stem + ".wav"))
+        assert sr == SR and y.ndim == 1, "stems must be 48 kHz mono"
+        bass = name.startswith("bass")
+        a = int((start - (0.03 if bass else 0.0)) * SR)
+        seg = y[a : a + int((length + (0.08 if bass else 0.0)) * SR)].astype(np.float64)
+        seg = librosa.resample(seg, orig_sr=SR, target_sr=TONE_RATE)
+        fade_in = int((0.006 if bass else 0.05) * TONE_RATE)
+        fade_out = int((0.07 if bass else 0.05) * TONE_RATE)
+        seg[:fade_in] *= np.linspace(0, 1, fade_in)
+        seg[-fade_out:] *= np.linspace(1, 0, fade_out)
+        seg = seg / (np.abs(seg).max() + 1e-12) * peak
+        with wave.open(os.path.join(OUT, name + ".wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(TONE_RATE)
+            w.writeframes((np.clip(seg, -1, 1) * 32767).astype("<i2").tobytes())
+        print(f"{name:13s} {stem:38s} at {start:7.2f}s  {len(seg) / TONE_RATE:.2f} s")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
@@ -163,6 +204,7 @@ def main():
                 f"{kit}_{i:02d} {label:11s} {stem[-14:]:14s} {cls:5s} {which:7s} at {h['o'] / SR:7.2f}s  "
                 f"{len(seg) / RATE * 1000:4.0f} ms  centre {h['cen']:5.0f} Hz  before {h['pre']:.3f}"
             )
+    tones(sys.argv[1])
 
 
 if __name__ == "__main__":
