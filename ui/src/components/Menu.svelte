@@ -24,7 +24,15 @@
     // the press that opened it is still down: listen from the next one
     const t = setTimeout(() => addEventListener("pointerdown", away, true), 0);
     addEventListener("resize", onclose);
+    // Escape puts it away wherever the focus happens to be
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      onclose();
+    };
+    addEventListener("keydown", esc, true);
     return () => {
+      removeEventListener("keydown", esc, true);
       clearTimeout(t);
       removeEventListener("pointerdown", away, true);
       removeEventListener("resize", onclose);

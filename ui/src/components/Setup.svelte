@@ -3,7 +3,7 @@
   // The set face: the sets kept in this browser, this set's name, tempo and
   // key, how recording behaves, and this device.
   import Knob from "./Knob.svelte";
-  import {
+  import { tapTempo,
     app,
     act,
     live,
@@ -58,17 +58,7 @@
     const r = { ...p.record, ...patch };
     await act({ type: "set_record", notes: r.notes, automation: r.automation, quantize: r.quantize, song: r.song });
   }
-  // tap tempo: the pace of the last few taps
-  let taps: number[] = [];
-  function tap() {
-    const now = performance.now();
-    if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
-    taps.push(now);
-    if (taps.length > 5) taps.shift();
-    if (taps.length < 2) return;
-    const beat = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
-    void act({ type: "set_bpm", bpm: Math.round(Math.min(200, Math.max(40, 60000 / beat))) });
-  }
+  const tap = tapTempo;
   async function setCountIn(bars: number) {
     countIn = bars;
     await act({ type: "set_count_in", bars });

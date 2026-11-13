@@ -10,6 +10,8 @@
       [
         ["click a loop", "play it; again to stop it"],
         ["double click", "step inside"],
+        ["hold, or right click", "a short menu: copy, paste, delete; on a letter, the whole row"],
+        ["the tempo on the screen", "touch it to change it, or tap it in"],
         ["click +", "step into an empty loop"],
         ["a letter on the left", "play the whole row"],
       ],
@@ -54,6 +56,8 @@
       [
         ["clic en un loop", "lo toca; otro clic lo para"],
         ["doble clic", "entra en él"],
+        ["mantener, o clic derecho", "un menú corto: copiar, pegar, borrar; sobre una letra, la fila entera"],
+        ["el tempo en la pantalla", "tócalo para cambiarlo, o márcalo con toques"],
         ["clic en +", "entra en un loop vacío"],
         ["una letra a la izquierda", "toca toda la fila"],
       ],

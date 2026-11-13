@@ -692,10 +692,10 @@ impl App {
             Action::AddTrack { kind } => {
                 let spec = match kind {
                     TrackKind::Drums => InstrumentSpec::Drums {
-                        kit: DrumKitId::Tr808,
+                        kit: DrumKitId::Shadow,
                     },
                     TrackKind::Melodic => InstrumentSpec::Synth {
-                        preset: SynthPreset::Pluck,
+                        preset: SynthPreset::SoftPiano,
                     },
                 };
                 c.add_track(kind, spec)?;

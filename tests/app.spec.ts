@@ -70,8 +70,14 @@ test("steps write a drum loop; a step shows its level, chance and repeats", asyn
   await hit(page, 0);
   for (const s of [0, 4, 8, 12]) await page.locator(".step").nth(s).click();
   await expect(page.locator('.step[aria-pressed="true"]')).toHaveCount(4);
-  await expect(page.locator(".detail")).toBeVisible();
+  // writing does not open a step's detail; holding it (or the right button) does, in the header's own line
+  await expect(page.locator(".detail")).toHaveCount(0);
+  const pads = (await page.locator(".pads").boundingBox())!;
+  await page.locator(".step").nth(4).click({ button: "right" });
   await expect(page.locator(".detail .name")).toHaveText(["level", "chance", "repeat"]);
+  expect((await page.locator(".pads").boundingBox())!.y).toBe(pads.y);
+  await page.getByRole("button", { name: "done" }).click();
+  await expect(page.locator('.step[aria-pressed="true"]')).toHaveCount(4);
   // undo takes the last step back
   await page.getByRole("button", { name: "undo" }).click();
   await expect(page.locator('.step[aria-pressed="true"]')).toHaveCount(3);
@@ -147,7 +153,7 @@ test("a held press or the right button on a loop offers to delete it", async ({ 
   await expect(sub).toHaveClass(/filled/);
   // copy here, paste there
   await sub.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "copy" }).click();
+  await page.getByRole("menuitem", { name: "copy", exact: true }).click();
   const empty = page.getByLabel(/^Shadow sub, section E/);
   await empty.click({ button: "right" });
   await page.getByRole("menuitem", { name: "paste" }).click();
@@ -373,4 +379,32 @@ test("an agent's messages write music the screen follows", async ({ page }) => {
   // and a person takes it back with the same undo
   await page.getByRole("button", { name: "undo" }).click();
   await expect(page.locator(".cell.filled")).toHaveCount(1);
+});
+
+test("a track is added from where the hand is, and opens on its sounds", async ({ page, isMobile }) => {
+  await page.getByLabel("add a track").click();
+  await page.getByRole("menuitem", { name: "keys" }).click();
+  await expect(page.locator(".track")).toBeVisible();
+  // a new track plays a sound that is on the shelves
+  await expect(page.locator(".track [aria-label=tracks] .tab[aria-selected=true]")).toContainText("soft piano");
+  if (isMobile) await expect(page.getByRole("tab", { name: "sound" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("the tempo is changed on the screen; a row is copied down from its letter", async ({ page }) => {
+  await page.getByLabel(/^tempo: 84 bpm/).click();
+  await page.getByRole("button", { name: "faster by five" }).click();
+  await page.getByRole("button", { name: "faster", exact: true }).click();
+  await expect(page.getByLabel(/^tempo: 90 bpm/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("group", { name: "tempo" })).toHaveCount(0);
+  // row c has five loops; e is the next empty row
+  await page.getByLabel("section C: play the row").click({ button: "right" });
+  await expect(page.locator(".cell.live")).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "copy to the next empty row" }).click();
+  await expect(page.locator(".cell.filled")).toHaveCount(13 + 5);
+  await expect(page.getByLabel(/^Dark bell, section E/)).toHaveClass(/filled/);
+  // one loop goes down on its own, to the next row where its track has none
+  await page.getByLabel(/^Drums, section C/).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "copy to the next free row" }).click();
+  await expect(page.getByLabel(/^Drums, section D/)).toHaveClass(/filled/);
 });

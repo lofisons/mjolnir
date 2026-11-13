@@ -249,6 +249,11 @@
     grid-template-rows: minmax(72px, 13vh) minmax(0, 1fr);
     min-height: 0;
   }
+  @media (max-width: 520px) {
+    .work {
+      grid-template-rows: 72px minmax(0, 1fr);
+    }
+  }
   .face {
     min-height: 0;
     overflow: hidden;

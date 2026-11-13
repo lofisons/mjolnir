@@ -11,7 +11,6 @@
 
   const tracks = $derived(app.project?.tracks ?? []);
   const scenes = $derived(app.project?.scenes ?? []);
-  let adding = $state(false);
 
   let last = { t: -1, s: -1, at: 0 };
   async function cell(t: number, s: number) {
@@ -48,6 +47,11 @@
         { label: tx("open"), pick: () => void openCell(t, s) },
         { label: tx("copy"), disabled: !filled, pick: () => (app.clip = { track: t, slot: s }) },
         { label: tx("paste"), disabled: !c || here || !pattern(c.track, c.slot), pick: () => void choose(t, s).then(pasteLoop) },
+        {
+          label: tx("copy to the next free row"),
+          disabled: !filled || freeBelow(t, s) < 0,
+          pick: () => void act({ type: "duplicate_pattern", track: t, from: s, to: freeBelow(t, s) }),
+        },
         { label: tx("delete loop"), disabled: !filled, danger: true, pick: () => void act({ type: "delete_pattern", track: t, slot: s }) },
       ],
     };
@@ -68,9 +72,63 @@
   }
 
   async function addTrack(kind: "drums" | "melodic") {
-    adding = false;
     await act({ type: "add_track", kind });
     await openCell((app.project?.tracks.length ?? 1) - 1, app.section);
+    // the first thing a new track wants is its sound
+    app.pane = "sound";
+  }
+  function addMenu(e: MouseEvent) {
+    const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    menu = {
+      x: b.right - 168,
+      y: b.bottom + 4,
+      title: tx("new track"),
+      items: [
+        { label: tx("drums"), pick: () => void addTrack("drums") },
+        { label: tx("keys"), pick: () => void addTrack("melodic") },
+      ],
+    };
+  }
+
+  /** The next section down where this track has no loop yet. */
+  function freeBelow(t: number, s: number): number {
+    for (let k = s + 1; k < scenes.length; k++) if (!pattern(t, k)) return k;
+    return -1;
+  }
+  async function clearRow(s: number) {
+    for (let t = 0; t < tracks.length; t++) if (pattern(t, s)) await act({ type: "delete_pattern", track: t, slot: s });
+  }
+  /** Copy a whole row into the next empty one (or a new one), to vary it there. */
+  async function copyRow(from: number) {
+    let to = -1;
+    for (let k = from + 1; k < scenes.length; k++)
+      if (!tracks.some((_, t) => pattern(t, k))) {
+        to = k;
+        break;
+      }
+    if (to < 0) {
+      if (scenes.length >= 8) {
+        app.note = "there is no empty section left to copy into";
+        return;
+      }
+      await act({ type: "add_section" });
+      to = (app.project?.scenes.length ?? 1) - 1;
+    }
+    for (let t = 0; t < tracks.length; t++) if (pattern(t, from)) await act({ type: "duplicate_pattern", track: t, from, to });
+    await selectSection(to);
+  }
+  function rowMenu(s: number, at: { x: number; y: number }) {
+    const any = tracks.some((_, t) => pattern(t, s));
+    app.section = s;
+    menu = {
+      ...at,
+      title: `${tx("section")} ${(scenes[s]?.name ?? "").toLowerCase()}`,
+      items: [
+        { label: tx("play the row"), disabled: !any, pick: () => void playRow(s) },
+        { label: tx("copy to the next empty row"), disabled: !any, pick: () => void copyRow(s) },
+        { label: tx("clear the row"), disabled: !any, danger: true, pick: () => void clearRow(s) },
+      ],
+    };
   }
 
   async function copySection() {
@@ -101,7 +159,7 @@
       </button>
     {/each}
     {#if tracks.length < 8}
-      <button class="plain th add" aria-label="add a track" aria-expanded={adding} onclick={() => (adding = !adding)}>+</button>
+      <button class="plain th add" aria-label="add a track" aria-haspopup="menu" onclick={addMenu}>+</button>
     {/if}
 
     {#each scenes as scene, s}
@@ -110,6 +168,7 @@
         aria-pressed={app.section === s}
         aria-label="section {scene.name}: play the row"
         onclick={() => playRow(s)}
+        use:hold={(at) => rowMenu(s, at)}
       >
         {scene.name.length <= 3 ? scene.name.toLowerCase() : s + 1}
       </button>
@@ -150,14 +209,6 @@
   </div>
 
   {#if menu}<Menu {...menu} onclose={() => (menu = null)} />{/if}
-
-  {#if adding}
-    <div class="tools from-right">
-      <span class="label">{tx("new track")}</span>
-      <button onclick={() => addTrack("drums")}>{tx("drums")}</button>
-      <button onclick={() => addTrack("melodic")}>{tx("keys")}</button>
-    </div>
-  {/if}
 
   <div class="tools">
     <span class="label">{tx("section")}</span>

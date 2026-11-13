@@ -12,8 +12,11 @@ Tracks run across, sections (a to h) run down. Each cell is a loop, drawn in its
 |---|---|
 | click a loop | play it; click again to stop it at the end of the bar |
 | double click a loop | step inside it |
-| hold a loop, or right click it | a short menu: open, copy, paste, delete loop |
+| hold a loop, or right click it | a short menu: open, copy, paste, copy to the next free row, delete loop |
 | hold a track's name, or right click it | open, mute, remove track |
+| hold a section's letter, or right click it | play the row, copy it to the next empty row, clear it |
+| click `+` beside the tracks | add a track: drums or keys; it opens on its sounds |
+| touch the bpm on the screen | change the tempo: −, +, or tap it in |
 | click `+` | step into an empty loop |
 | click a letter | play the whole row |
 | click a track's name | step into that track |
