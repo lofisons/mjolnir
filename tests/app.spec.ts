@@ -86,21 +86,72 @@ test("the roll writes notes and chords; keys and pads play", async ({ page }) =>
   // the piano's row e is empty
   await page.locator(".cell").nth(4 * 5 + 3).click();
   await expect(page.locator(".sheet")).toBeVisible();
-  const roll = (await page.locator(".sheet").locator("..").boundingBox())!;
-  await page.mouse.click(roll.x + 60, roll.y + 30);
-  await page.mouse.click(roll.x + roll.width * 0.6, roll.y + 66);
-  await expect(page.locator(".sheet .note")).toHaveCount(2);
-  await page.getByRole("button", { name: "triad" }).click();
+  const roll = (await page.locator(".roll").boundingBox())!;
+  // the roll is what the screen is for
+  expect(roll.height).toBeGreaterThan(page.viewportSize()!.height * 0.4);
+  await page.mouse.click(roll.x + 80, roll.y + 30);
+  await page.mouse.click(roll.x + roll.width * 0.6, roll.y + 70);
+  await expect(page.locator(".roll .note")).toHaveCount(2);
+  // chords are chosen from a sheet over the roll; choosing closes it
+  await page.getByRole("button", { name: /^chords: off/ }).click();
+  await page.getByRole("button", { name: "triad", exact: true }).click();
+  await expect(page.locator(".veil")).toHaveCount(0);
+  await page.mouse.click(roll.x + roll.width * 0.8, roll.y + 110);
+  await expect(page.locator(".roll .note")).toHaveCount(5);
+  // an open sheet shields the roll: a touch behind it closes it and writes nothing
+  await page.getByRole("button", { name: /^note length/ }).click();
+  await page.mouse.click(roll.x + roll.width * 0.3, roll.y + roll.height - 30);
+  await expect(page.locator(".veil")).toHaveCount(0);
+  await expect(page.locator(".roll .note")).toHaveCount(5);
+  // what plays by hand folds in and out
+  // (with chords on they are pads; on a wide screen they are already out)
+  if (!(await page.locator(".melodic .pad").count())) await page.getByRole("button", { name: "pads", exact: true }).click();
   await expect(page.locator(".melodic .pad")).toHaveCount(16);
-  await page.mouse.click(roll.x + roll.width * 0.8, roll.y + 102);
-  await expect(page.locator(".sheet .note")).toHaveCount(5);
   await page.getByRole("button", { name: "keys", exact: true }).click();
   await expect(page.locator(".keys .white").first()).toBeVisible();
-  // a note picked shows its detail and can be removed
-  await page.locator(".sheet .note").first().click();
+  await page.getByRole("button", { name: "keys", exact: true }).click();
+  await expect(page.locator(".keys")).toHaveCount(0);
+  // a note picked puts its detail in the bar, where nothing moves, and can be removed
+  const before = (await page.locator(".roll").boundingBox())!;
+  await page.locator(".roll .note").first().click();
   await expect(page.locator(".detail")).toBeVisible();
+  expect((await page.locator(".roll").boundingBox())!.height).toBe(before.height);
   await page.locator(".detail").getByRole("button", { name: "remove" }).click();
-  await expect(page.locator(".sheet .note")).toHaveCount(4);
+  await expect(page.locator(".roll .note")).toHaveCount(4);
+});
+
+test("a held press or the right button on a loop offers to delete it", async ({ page, isMobile }) => {
+  const sub = page.getByLabel(/^Shadow sub, section C/);
+  await expect(sub).toHaveClass(/filled/);
+  if (isMobile) {
+    const b = (await sub.boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: b.x + 20, y: b.y + 20 }] });
+    await page.waitForTimeout(650);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } else {
+    await sub.click({ button: "right" });
+  }
+  await expect(page.getByRole("menu")).toBeVisible();
+  // asking is not playing
+  await expect(page.locator(".cell.live")).toHaveCount(0);
+  // a touch elsewhere puts the menu away and changes nothing
+  await page.mouse.click(5, 300);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(sub).toHaveClass(/filled/);
+  await sub.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "delete loop" }).click();
+  await expect(sub).not.toHaveClass(/filled/);
+  // and it comes back with undo
+  await page.getByRole("button", { name: "undo" }).click();
+  await expect(sub).toHaveClass(/filled/);
+  // copy here, paste there
+  await sub.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "copy" }).click();
+  const empty = page.getByLabel(/^Shadow sub, section E/);
+  await empty.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "paste" }).click();
+  await expect(empty).toHaveClass(/filled/);
 });
 
 test("sounds are filed by kind and a macro sound opens every knob", async ({ page, isMobile }) => {
@@ -162,7 +213,7 @@ test("the punch strip holds effects while a key is down", async ({ page }) => {
 });
 
 test("the song places, moves and exports", async ({ page }) => {
-  await tab(page, "song");
+  await tab(page, "timeline");
   const before = await page.locator(".clip").count();
   expect(before).toBeGreaterThan(10);
   // the empty bars after the end of the song
@@ -217,7 +268,7 @@ test("a finger that scrolls the roll writes nothing; a tap still does", async ({
   test.skip(!isMobile, "touch only");
   await page.locator(".cell").nth(4 * 5 + 3).click();
   await expect(page.locator(".sheet")).toBeVisible();
-  const box = page.locator(".sheet").locator("..");
+  const box = page.locator(".roll");
   const roll = (await box.boundingBox())!;
   const cdp = await page.context().newCDPSession(page);
   const x = roll.x + roll.width * 0.5;
@@ -232,24 +283,28 @@ test("a finger that scrolls the roll writes nothing; a tap still does", async ({
   const before = await box.evaluate((el) => el.scrollTop);
   await drag(roll.y + roll.height - 20, roll.y + 20);
   await drag(roll.y + 20, roll.y + roll.height - 30);
+  await page.waitForTimeout(300);
+  // the sheet really moved under the finger
+  expect(await box.evaluate((el) => el.scrollTop)).not.toBe(before);
   await drag(roll.y + roll.height - 20, roll.y + 30);
   await page.waitForTimeout(300);
-  expect(await box.evaluate((el) => el.scrollTop)).not.toBe(before);
-  await expect(page.locator(".sheet .note")).toHaveCount(0);
+  await expect(page.locator(".roll .note")).toHaveCount(0);
   await page.touchscreen.tap(x, roll.y + 40);
-  await expect(page.locator(".sheet .note")).toHaveCount(1);
+  await expect(page.locator(".roll .note")).toHaveCount(1);
 });
 
 test("a loop is carried to another octave or note, and doubled at an interval", async ({ page }) => {
   await page.locator(".cell").nth(4 * 5 + 3).click();
   await expect(page.locator(".sheet")).toBeVisible();
-  const roll = (await page.locator(".sheet").locator("..").boundingBox())!;
-  await page.mouse.click(roll.x + 60, roll.y + 30);
-  await page.mouse.click(roll.x + roll.width * 0.6, roll.y + 66);
-  const names = () => page.locator(".sheet .note").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")!.split(" ")[0]).sort());
-  await expect(page.locator(".sheet .note")).toHaveCount(2);
+  const roll = (await page.locator(".roll").boundingBox())!;
+  await page.mouse.click(roll.x + 80, roll.y + 30);
+  await page.mouse.click(roll.x + roll.width * 0.6, roll.y + 70);
+  const notes = page.locator(".roll .note");
+  const names = () => notes.evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")!.split(" ")[0]).sort());
+  await expect(notes).toHaveCount(2);
   const first = await names();
-  await page.getByRole("button", { name: "move", exact: true }).click();
+  // everything that changes the whole loop is behind one button, and stays open while it is used
+  await page.getByRole("button", { name: "edit", exact: true }).click();
   await page.getByRole("button", { name: "octave lower" }).click();
   await expect.poll(names).toEqual(first.map((n) => n.replace(/-?\d+$/, (o) => String(Number(o) - 1))).sort());
   await page.getByRole("button", { name: "octave higher" }).click();
@@ -258,17 +313,18 @@ test("a loop is carried to another octave or note, and doubled at an interval", 
   await expect.poll(names).not.toEqual(first);
   await page.getByRole("button", { name: "note lower" }).click();
   await expect.poll(names).toEqual(first);
-  await page.getByRole("button", { name: "harmony", exact: true }).click();
   await page.getByRole("button", { name: "3rd", exact: true }).click();
-  await expect(page.locator(".sheet .note")).toHaveCount(4);
+  await expect(notes).toHaveCount(4);
   // a third on the thirds stacks a triad; one undo takes a whole harmony away
   await page.getByRole("button", { name: "3rd", exact: true }).click();
-  await expect(page.locator(".sheet .note")).toHaveCount(6);
+  await expect(notes).toHaveCount(6);
   await page.getByRole("button", { name: "below" }).click();
   await page.getByRole("button", { name: "oct", exact: true }).click();
-  await expect(page.locator(".sheet .note")).toHaveCount(12);
+  await expect(notes).toHaveCount(12);
   await page.getByRole("button", { name: "undo" }).click();
-  await expect(page.locator(".sheet .note")).toHaveCount(6);
+  await expect(notes).toHaveCount(6);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".veil")).toHaveCount(0);
 });
 
 test("one loop of a playing row stops at the bar; a second touch stops it at once", async ({ page }) => {

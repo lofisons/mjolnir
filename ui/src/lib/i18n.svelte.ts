@@ -6,11 +6,11 @@ const ES: Record<string, string> = {
   // the status line
   "touch to wake the sound": "toca para despertar el sonido",
   "recording · play the pads": "grabando · toca los pads",
-  "playing the song": "sonando la canción",
+  "playing the timeline": "sonando el timeline",
   playing: "sonando",
   stopped: "detenido",
   recording: "grabando",
-  "click plays a loop · double click opens it": "un clic toca un loop · doble clic lo abre",
+  "click: play · double: open · hold: more": "clic: tocar · doble: abrir · mantener: más",
   "touch + to begin": "toca + para empezar",
   "count in": "cuenta",
   rendering: "renderizando",
@@ -34,6 +34,13 @@ const ES: Record<string, string> = {
   note: "nota",
   chords: "acordes",
   off: "no",
+  edit: "editar",
+  level: "nivel",
+  chance: "azar",
+  repeat: "repetir",
+  open: "abrir",
+  "delete loop": "borrar loop",
+  unmute: "quitar mute",
   move: "transportar",
   harmony: "armonizar",
   octave: "octava",
@@ -65,7 +72,7 @@ const ES: Record<string, string> = {
   "up to twenty seconds; it replaces this track's sound": "hasta veinte segundos; reemplaza el sonido de esta pista",
   "remove track": "quitar pista",
   "open the sound": "abrir el sonido",
-  // song
+  // timeline
   "add a row": "añadir fila",
   "no loops yet": "aún no hay loops",
   "remove clip": "quitar clip",
@@ -75,7 +82,7 @@ const ES: Record<string, string> = {
   close: "cerrar",
   what: "qué",
   as: "como",
-  "the song": "la canción",
+  "the timeline": "el timeline",
   "the mix": "la mezcla",
   "one file per track": "un archivo por pista",
   row: "fila",
@@ -104,7 +111,7 @@ const ES: Record<string, string> = {
   "choose something to export": "elige qué exportar",
   "this row has no loops": "esta fila no tiene loops",
   "there was nothing to render": "no había nada que renderizar",
-  "the song is empty → place loops on it first, or export the row": "la canción está vacía → coloca loops en ella, o exporta la fila",
+  "the timeline is empty → place loops on it first, or export the row": "el timeline está vacío → coloca loops en él, o exporta la fila",
   "that file could not be read as sound → try a WAV or an MP3": "ese archivo no se pudo leer como sonido → prueba un WAV o un MP3",
   "the microphone is not available here → use a file": "aquí no hay micrófono → usa un archivo",
   "the recording could not be read": "la grabación no se pudo leer",
@@ -114,14 +121,17 @@ const ES: Record<string, string> = {
   "this browser would not keep the set → save it to a file": "este navegador no pudo conservar el set → guárdalo en un archivo",
 };
 
+// English until a person chooses another language in `set`. The instrument's
+// own words stay English in every language, so following the device's
+// language on its own left a screen that read as English with stray words.
 function first(): string {
   try {
-    const kept = localStorage.getItem("mjolnir.lang");
+    const kept = localStorage.getItem("mjolnir.lang.chosen");
     if (kept) return kept;
   } catch {
     /* private window */
   }
-  return typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("es") ? "es" : "en";
+  return "en";
 }
 
 export const lang = $state({ code: first() });
@@ -130,7 +140,7 @@ export function setLang(code: string): void {
   lang.code = code;
   document.documentElement.lang = code;
   try {
-    localStorage.setItem("mjolnir.lang", code);
+    localStorage.setItem("mjolnir.lang.chosen", code);
   } catch {
     /* private window */
   }

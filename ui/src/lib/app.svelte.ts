@@ -601,7 +601,7 @@ export async function exportAudio(choice: ExportChoice): Promise<void> {
   const p = app.project;
   if (!p) return;
   if (choice.scope === "song" && !p.song.clips.length) {
-    app.note = "the song is empty → place loops on it first, or export the row";
+    app.note = "the timeline is empty → place loops on it first, or export the row";
     return;
   }
   app.busy = "rendering";

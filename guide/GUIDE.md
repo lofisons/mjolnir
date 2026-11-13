@@ -1,6 +1,6 @@
 # How to play Mjolnir
 
-Mjolnir has four faces along the top: **loops**, **song**, **mix** and **set**. The screen above them draws the sound itself; the line at the foot says what is happening and holds `fx`, `rec` and `play`.
+Mjolnir has four faces along the top: **loops**, **timeline**, **mix** and **set**. The screen above them draws the sound itself; the line at the foot says what is happening and holds `fx`, `rec` and `play`.
 
 ## Loops
 
@@ -12,6 +12,8 @@ Tracks run across, sections (a to h) run down. Each cell is a loop, drawn in its
 |---|---|
 | click a loop | play it; click again to stop it at the end of the bar |
 | double click a loop | step inside it |
+| hold a loop, or right click it | a short menu: open, copy, paste, delete loop |
+| hold a track's name, or right click it | open, mute, remove track |
 | click `+` | step into an empty loop |
 | click a letter | play the whole row |
 | click a track's name | step into that track |
@@ -37,9 +39,11 @@ Hold a lit step (or right-click it) to see its **level**, its **chance** of soun
 
 ![The piano roll](img/desk-roll.jpg)
 
+The piano roll has the screen. One line of tools sits above it: the note length, the loop's bars, the chords and **edit**; each opens a sheet over the roll, and a touch on the roll behind an open sheet only closes it. Under the roll, **keys** and **pads** fold the playing surface in and out; on a phone it starts folded away.
+
 The piano roll shows only the notes of the key. Click to write a note of the chosen length; drag a note to move it, drag its right edge to stretch it, click it to pick it (its level, chance and repeats appear), double click to remove it. On a touch screen a tap writes; a finger that travels scrolls the sheet and writes nothing.
 
-**move** carries the whole loop: an octave lower or higher, or one note of the key down or up. **harmony** doubles every note at an interval of the key (a third, a fourth, a fifth, a sixth, an octave), above or below; use it again to stack a chord. Each is one step of undo.
+Under **edit**: **move** carries the whole loop: an octave lower or higher, or one note of the key down or up. **harmony** doubles every note at an interval of the key (a third, a fourth, a fifth, a sixth, an octave), above or below; use it again to stack a chord. Each is one step of undo.
 
 Below it, a keyboard or pads of the key's notes. With **chords** on, every note you write or play is the chord of the key built on it, and the pads show its name.
 
@@ -51,13 +55,13 @@ A synth sound shows every one of its parts below: the engine, three tone knobs w
 
 **Yours**: choose a file or record the microphone (up to twenty seconds). Play it across the keys, as grains, or sliced on the pads.
 
-## Song
+## Timeline
 
-![Song](img/desk-song.jpg)
+![Timeline](img/desk-song.jpg)
 
 One lane per track. Each lane has a loop in hand (its picker); click the lane to place it. Drag a clip to move it, its right edge to change its length, hold ctrl or alt to drag a copy, double click to open the loop. `add a row` puts a whole section at the end. The ruler sets where playback starts. Press play on this face to hear the song.
 
-**Export** bounces the song, or just the row on screen as a loop: the mix, one file per track, MIDI. Several files arrive as one zip.
+**Export** bounces the timeline, or just the row on screen as a loop: the mix, one file per track, MIDI. Several files arrive as one zip.
 
 ## Mix
 

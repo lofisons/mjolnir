@@ -4,8 +4,10 @@
   // A cell is a loop in its track's colour. One click plays it, another
   // stops it; a double click steps inside. An empty cell has nothing to
   // play, so one click steps in.
-  import { app, act, selectSection, openCell, toggleCell, startCell, sounding, playRow, playing, pattern, trackColor } from "../lib/app.svelte";
+  import { app, act, selectSection, selectTrack, openCell, toggleCell, startCell, sounding, playRow, playing, pattern, pasteLoop, trackColor } from "../lib/app.svelte";
   import NotePreview from "./NotePreview.svelte";
+  import Menu, { type MenuItem } from "./Menu.svelte";
+  import { hold } from "../lib/hold";
 
   const tracks = $derived(app.project?.tracks ?? []);
   const scenes = $derived(app.project?.scenes ?? []);
@@ -25,6 +27,44 @@
     }
     last = { t, s, at: now };
     await toggleCell(t, s);
+  }
+
+  // ---- a long press, or the right button: what can be done with this loop or this track
+  let menu = $state<{ x: number; y: number; title: string; items: MenuItem[] } | null>(null);
+
+  async function choose(t: number, s: number) {
+    app.section = s;
+    if (app.track !== t) await selectTrack(t);
+  }
+  function cellMenu(t: number, s: number, at: { x: number; y: number }) {
+    const filled = !!pattern(t, s);
+    const c = app.clip;
+    const here = c?.track === t && c?.slot === s;
+    void choose(t, s);
+    menu = {
+      ...at,
+      title: `${tracks[t]?.name.toLowerCase() ?? ""} · ${(scenes[s]?.name ?? "").toLowerCase()}`,
+      items: [
+        { label: tx("open"), pick: () => void openCell(t, s) },
+        { label: tx("copy"), disabled: !filled, pick: () => (app.clip = { track: t, slot: s }) },
+        { label: tx("paste"), disabled: !c || here || !pattern(c.track, c.slot), pick: () => void choose(t, s).then(pasteLoop) },
+        { label: tx("delete loop"), disabled: !filled, danger: true, pick: () => void act({ type: "delete_pattern", track: t, slot: s }) },
+      ],
+    };
+  }
+  function trackMenu(t: number, at: { x: number; y: number }) {
+    const tr = tracks[t];
+    if (!tr) return;
+    void choose(t, app.section);
+    menu = {
+      ...at,
+      title: tr.name.toLowerCase(),
+      items: [
+        { label: tx("open"), pick: () => void openCell(t, app.section) },
+        { label: tr.mute ? tx("unmute") : "mute", pick: () => void act({ type: "set_mute", track: t, mute: !tr.mute }) },
+        { label: tx("remove track"), disabled: tracks.length < 2, danger: true, pick: () => void act({ type: "remove_track", track: t }) },
+      ],
+    };
   }
 
   async function addTrack(kind: "drums" | "melodic") {
@@ -54,6 +94,7 @@
         style="--id: {trackColor(t)}"
         aria-label="{t.name}: open"
         onclick={() => openCell(i, app.section)}
+        use:hold={(at) => trackMenu(i, at)}
       >
         <span class="tname">{t.name.toLowerCase()}</span>
         <span class="meter" style="transform: scaleX({Math.min(1, (app.status?.tracks[i]?.level ?? 0) * 2.5)})"></span>
@@ -87,8 +128,10 @@
           class:leaving
           style="--id: {trackColor(t)}"
           aria-label="{t.name}, section {scene.name}{p ? (leaving ? ', stopping' : live ? ', playing' : '') : ', empty'}"
-          title={p ? (leaving ? "stops at the bar · click: stop now" : "click: play or stop · double click: open") : "open"}
+          title={p ? (leaving ? "stops at the bar · click: stop now" : "click: play or stop · double click: open · right click: more") : "open"}
+          aria-haspopup="menu"
           onclick={() => cell(i, s)}
+          use:hold={(at) => cellMenu(i, s, at)}
         >
           {#if p}
             <span class="notes"><NotePreview pattern={p} drums={t.kind === "drums"} /></span>
@@ -105,6 +148,8 @@
       {#if tracks.length < 8}<span></span>{/if}
     {/each}
   </div>
+
+  {#if menu}<Menu {...menu} onclose={() => (menu = null)} />{/if}
 
   {#if adding}
     <div class="tools from-right">
@@ -205,6 +250,12 @@
   }
   .row[aria-pressed="true"] {
     color: var(--bg);
+  }
+  .cell,
+  .th {
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
   .cell {
     position: relative;

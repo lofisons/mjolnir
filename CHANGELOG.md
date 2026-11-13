@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The notes view is rebuilt around the piano roll: one line of tools (note length, bars, chords, edit) that open as sheets over the roll, a keyboard that folds away, taller rows and bigger grips on touch, and a picked note's detail in the bar, so nothing jumps.
+- Hold a loop, or right click it: open, copy, paste, delete loop. The same on a track's name: open, mute, remove.
+- The song face is called **timeline**.
+- English until another language is chosen in `set`: following the device's language left stray translated words on an English screen.
+
 - An agent can make music in Mjolnir through the Model Context Protocol: write loops, build drum parts, shape synths and kits, arrange a song. In the desktop app (**Agent → Let an agent play**), on the set that is open; or as `mjolnir-mcp`, with no window, on a set as a file, with WAV and MIDI out. See [guide/AGENTS.md](guide/AGENTS.md).
 - A synth sound can be renamed.
 

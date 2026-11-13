@@ -6,7 +6,7 @@
   import { app, act, pattern } from "../lib/app.svelte";
   import { noteName, type Note } from "../lib/api";
 
-  let { named = true }: { named?: boolean } = $props();
+  let { named = true, inline = false }: { named?: boolean; inline?: boolean } = $props();
   const note = $derived(pattern()?.notes.find((n) => n.start === app.pick?.start && n.pitch === app.pick?.pitch) ?? null);
 
   // what the knobs show while they turn; committed when let go
@@ -40,13 +40,13 @@
 <svelte:window onkeydown={key} />
 
 {#if shown}
-  <div class="detail from-right">
+  <div class="detail" class:inline class:from-right={!inline}>
     {#if named}<span class="what">{noteName(shown.pitch).toLowerCase()}</span>{/if}
-    <Knob size={28} value={shown.velocity} label="level" reset={0.8} onchange={(v) => turn({ velocity: Math.max(0.05, v) })} onend={commit} />
+    <Knob size={28} value={shown.velocity} label={tx("level")} reset={0.8} onchange={(v) => turn({ velocity: Math.max(0.05, v) })} onend={commit} />
     <Knob
       size={28}
       value={(shown.chance ?? 100) / 100}
-      label="chance"
+      label={tx("chance")}
       reset={1}
       text="{shown.chance ?? 100} %"
       onchange={(v) => turn({ chance: Math.max(5, Math.round(v * 20) * 5) })}
@@ -55,7 +55,7 @@
     <Knob
       size={28}
       value={((shown.repeat ?? 1) - 1) / 3}
-      label="repeat"
+      label={tx("repeat")}
       reset={0}
       text="× {shown.repeat ?? 1}"
       onchange={(v) => turn({ repeat: 1 + Math.round(v * 3) })}
@@ -75,6 +75,19 @@
     padding: 4px 8px;
     border: 1px solid var(--line);
     min-height: 52px;
+  }
+  /* inside a bar: the bar is the frame */
+  .detail.inline {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    gap: 12px;
+  }
+  .detail.inline button {
+    flex: none;
+    height: 32px;
   }
   .what {
     min-width: 3ch;
