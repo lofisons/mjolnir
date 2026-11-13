@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0
+
+The same instrument with less on screen: every option is still there, one touch further in.
+
+- A first visit asks one thing: **start a beat** or **listen first**.
+- Loops shows the rows in use and one to grow into; empty cells stay quiet until the pointer or a finger is near. A section's tools moved into its letter's menu, with **rename**.
+- Drums are lanes of steps, one per sound, with the pads under them and a fold for the pads. **edit** holds beats to start from and hats to lay over them.
+- Inside a track there is one row at the top: back, the tracks, the section, and **sound**.
+- The key and the tempo are changed on the screen, from any face.
+- Timeline: one section in hand instead of a picker on every lane; fades, zoom and clear behind **edit**.
+- Mix on a phone: each strip shows its level and gates; `···` opens its pan, room and echo.
+- A new melodic loop starts two bars long. A new set opens on the loops.
+- Escape closes the sheet or menu that is open and leaves the track where it is.
+
 ## 0.3.0
 
 Less in the way between an idea and a loop.

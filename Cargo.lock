@@ -473,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "mjolnir-app"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "mjolnir-engine",
@@ -483,7 +483,7 @@ dependencies = [
 
 [[package]]
 name = "mjolnir-engine"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "cpal",
@@ -497,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "mjolnir-plugin"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "mjolnir-engine",
  "vst3",
@@ -505,7 +505,7 @@ dependencies = [
 
 [[package]]
 name = "mjolnir-web"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "mjolnir-app",
  "mjolnir-engine",

@@ -15,6 +15,10 @@ test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  // the welcome is asked once; these tests start after it (one of them looks at it)
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem("keep-welcome")) localStorage.setItem("mjolnir.welcomed", "1");
+  });
   await page.goto("/");
   await expect(page.locator(".shell")).toBeVisible();
   await expect(page.locator(".th .tname").first()).toBeVisible();
@@ -30,7 +34,8 @@ test.afterEach(async ({ page }) => {
 
 test("the first visit opens a finished piece", async ({ page }) => {
   await expect(page.locator(".th .tname")).toHaveText(["drums", "shadow sub", "shadow air", "soft piano", "dark bell"]);
-  await expect(page.locator(".row")).toHaveCount(8);
+  // the rows in use, and one more to grow into
+  await expect(page.locator(".row")).toHaveCount(5);
   expect(await page.locator(".cell.filled").count()).toBeGreaterThan(8);
   await tab(page, "set");
   await expect(page.locator(".row.open .sname")).toHaveText("shadow walk");
@@ -83,9 +88,21 @@ test("steps write a drum loop; a step shows its level, chance and repeats", asyn
   await expect(page.locator('.step[aria-pressed="true"]')).toHaveCount(3);
   await page.getByRole("button", { name: "redo" }).click();
   await expect(page.locator('.step[aria-pressed="true"]')).toHaveCount(4);
-  // two bars: what was there repeats
-  await page.locator(".play .mini", { hasText: /^2$/ }).first().click();
-  await expect(page.getByText("showing bar")).toBeVisible();
+  // the whole beat is on screen: a lane for each of the kit's main pads, written without changing pad
+  await page.locator(".lane").nth(1).locator(".step").nth(4).click();
+  await page.locator(".lane").nth(3).locator(".step").nth(2).click();
+  await expect(page.locator('.step[aria-pressed="true"]')).toHaveCount(6);
+  // two bars: what was there repeats, and the bars can be paged
+  await page.getByRole("button", { name: /^bars: 1/ }).click();
+  await page.locator(".sheet .opt", { hasText: /^2$/ }).click();
+  await expect(page.getByRole("group", { name: "showing bar" }).getByRole("button")).toHaveCount(2);
+  // a ready-made beat is one touch away, and Escape closes the sheet without leaving the track
+  await page.getByRole("button", { name: "edit", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".track")).toBeVisible();
+  await page.getByRole("button", { name: "edit", exact: true }).click();
+  await page.getByRole("button", { name: "boom bap" }).click();
+  await expect.poll(() => page.locator('.step[aria-pressed="true"]').count()).toBeGreaterThan(6);
 });
 
 test("the roll writes notes and chords; keys and pads play", async ({ page }) => {
@@ -223,14 +240,27 @@ test("the song places, moves and exports", async ({ page }) => {
   const before = await page.locator(".clip").count();
   expect(before).toBeGreaterThan(10);
   // the empty bars after the end of the song
-  await page.locator(".scroll").evaluate((e) => (e.scrollLeft = e.scrollWidth));
+  await page.locator(".scroll").evaluate((e) => e.scrollTo({ left: e.scrollWidth, behavior: "instant" }));
   const view = (await page.locator(".scroll").boundingBox())!;
   const lane = (await page.locator(".lane").first().boundingBox())!;
-  await page.mouse.click(view.x + view.width - 12, lane.y + 20);
+  // well inside the last bar, not on the edge of the lane
+  const at = Math.min(view.x + view.width, lane.x + lane.width) - 24;
+  // the drums have no loop in section a, the one in hand: nothing is placed, and the line says why
+  await page.mouse.click(at, lane.y + 20);
+  await expect(page.locator(".clip")).toHaveCount(before);
+  await expect(sentence(page)).toContainText("no loop in section a");
+  await page.getByRole("button", { name: "section C", exact: true }).click();
+  await page.mouse.click(at, lane.y + 20);
+  await page.waitForTimeout(800);
+  console.log("DBG", await page.locator(".clip").count(), before, JSON.stringify(lane), JSON.stringify(await page.locator(".lane").first().boundingBox()), await page.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y)!; return e.className + "|" + e.getAttribute("aria-label") + "|" + document.activeElement?.className; }, [at, lane.y + 20]));
   await expect(page.locator(".clip")).toHaveCount(before + 1);
   await expect(page.locator(".clip.picked")).toHaveCount(1);
   await page.getByRole("button", { name: "remove clip" }).click();
   await expect(page.locator(".clip")).toHaveCount(before);
+  // a whole section goes to the end in one touch
+  await page.getByRole("button", { name: "add to the end" }).click();
+  await expect(page.locator(".clip")).toHaveCount(before + 5);
+  await page.getByRole("button", { name: "undo" }).click();
   // export the mix and the midi: they arrive together as one zip
   await page.getByRole("button", { name: "export", exact: true }).click();
   await page.getByRole("button", { name: "midi" }).click();
@@ -244,11 +274,15 @@ test("the song places, moves and exports", async ({ page }) => {
 test("sets are kept, copied, removed and survive a reload", async ({ page }) => {
   await tab(page, "set");
   await page.getByRole("button", { name: "new set" }).click();
+  // a new set is looked at from its loops: one quiet row to begin in
+  await expect(page.locator(".loops .row")).toHaveCount(1);
+  await tab(page, "set");
   await expect(page.locator(".sets .row")).toHaveCount(2);
   await expect(page.locator(".row.open .sname")).toHaveText("untitled");
   await page.locator('input[aria-label="name"]').fill("Night one");
   await page.locator('input[aria-label="name"]').blur();
   await page.getByRole("button", { name: "fog" }).click();
+  await tab(page, "set");
   await expect(page.locator(".sets .row")).toHaveCount(3);
   await expect(page.locator(".row.open .sname")).toHaveText("fog");
   await expect(page.locator(".sets .sname", { hasText: "night one" })).toHaveCount(1);
@@ -379,4 +413,38 @@ test("the tempo is changed on the screen; a row is copied down from its letter",
   await page.getByLabel(/^Drums, section C/).click({ button: "right" });
   await page.getByRole("menuitem", { name: "copy to the next free row" }).click();
   await expect(page.getByLabel(/^Drums, section D/)).toHaveClass(/filled/);
+});
+
+test("the first time asks one thing: start a beat, or listen first", async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.setItem("keep-welcome", "1");
+  });
+  await page.reload();
+  const welcome = page.getByRole("dialog", { name: "mjolnir" });
+  await expect(welcome).toBeVisible();
+  await welcome.getByRole("button", { name: /start a beat/ }).click();
+  await expect(welcome).toHaveCount(0);
+  // an empty set: four tracks, one row, nothing else to read
+  await expect(page.locator(".th .tname")).toHaveText(["drums", "shadow sub", "shadow air", "soft piano"]);
+  await expect(page.locator(".loops .row")).toHaveCount(1);
+  await expect(page.locator(".cell.filled")).toHaveCount(0);
+  // it is asked once
+  await page.reload();
+  await expect(page.locator(".th .tname").first()).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "mjolnir" })).toHaveCount(0);
+});
+
+test("the key is changed on the screen; a section is renamed from its letter", async ({ page }) => {
+  await page.getByLabel(/^key: a minor/).click();
+  await page.getByRole("group", { name: "root" }).getByRole("button", { name: "D", exact: true }).click();
+  await page.getByRole("group", { name: "scale" }).getByRole("button", { name: "dorian" }).click();
+  await expect(page.getByLabel(/^key: d dorian/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("group", { name: "key" })).toHaveCount(0);
+  await page.getByLabel("section B: play the row").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "rename" }).click();
+  await page.getByLabel("name of the section").fill("hi");
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("section hi: play the row")).toBeVisible();
 });

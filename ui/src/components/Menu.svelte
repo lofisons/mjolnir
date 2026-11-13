@@ -3,7 +3,7 @@
   // pressed. It closes on a choice, a touch anywhere else, or Escape.
   import { onMount } from "svelte";
 
-  export type MenuItem = { label: string; pick: () => void; disabled?: boolean; danger?: boolean };
+  export type MenuItem = { label: string; pick: () => void; disabled?: boolean; danger?: boolean; on?: boolean; note?: string };
   let { x, y, title = "", items, onclose }: { x: number; y: number; title?: string; items: MenuItem[]; onclose: () => void } = $props();
 
   let box = $state<HTMLDivElement | null>(null);
@@ -70,11 +70,13 @@
     <button
       role="menuitem"
       class:danger={item.danger}
+      class:on={item.on}
+      aria-current={item.on ? "true" : undefined}
       disabled={item.disabled}
       onclick={() => {
         onclose();
         item.pick();
-      }}>{item.label}</button
+      }}><span>{item.label}</span>{#if item.note}<span class="note">{item.note}</span>{/if}</button
     >
   {/each}
 </div>
@@ -107,6 +109,10 @@
     border: 0;
     height: 36px;
     padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     text-align: left;
   }
   button + button {
@@ -134,5 +140,13 @@
     button {
       height: 44px;
     }
+  }
+  button.on {
+    box-shadow: inset 2px 0 0 var(--fg);
+    font: var(--ui-strong);
+  }
+  .note {
+    font: var(--tick);
+    color: var(--fg-muted);
   }
 </style>

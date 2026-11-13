@@ -10,8 +10,8 @@
       [
         ["click a loop", "play it; again to stop it"],
         ["double click", "step inside"],
-        ["hold, or right click", "a short menu: copy, paste, delete; on a letter, the whole row"],
-        ["the tempo on the screen", "touch it to change it, or tap it in"],
+        ["hold, or right click", "a short menu: copy, paste, delete; on a letter, the whole row and its name"],
+        ["the key and the tempo on the screen", "touch them to change them; the tempo can be tapped in"],
         ["click +", "step into an empty loop"],
         ["a letter on the left", "play the whole row"],
       ],
@@ -21,10 +21,12 @@
       [
         ["pads, keys", "play; the higher on a pad, the harder. rec keeps what you play"],
         ["capture", "keep what you just played, even if nothing was recording"],
+        ["drums", "one lane of sixteen steps per sound; edit holds beats to start from"],
         ["a step", "click to switch; hold (or right click) to see its level, chance and repeats"],
         ["the roll", "click to write, drag to move, the right edge to stretch, click a note to pick it"],
         ["chords", "every note becomes the chord of the key"],
-        ["loop", "copy, paste, snap to the grid, clear"],
+        ["edit", "copy, paste, snap to the grid, clear; in a roll, move and harmony"],
+        ["the letter at the top", "the same track in another section"],
       ],
     ],
     [
@@ -32,7 +34,7 @@
       [
         ["fx", "eight effects that sound while held (shift 1 to 8)"],
         ["mix", "levels, place, room and echo; the pump makes room for the kick"],
-        ["timeline", "click a lane to place the loop in hand; drag clips to move them"],
+        ["timeline", "choose a section, then click a lane to place that track's loop of it; drag clips to move them"],
         ["export", "the timeline or one row; the mix, one file per track, midi"],
       ],
     ],
@@ -56,8 +58,8 @@
       [
         ["clic en un loop", "lo toca; otro clic lo para"],
         ["doble clic", "entra en él"],
-        ["mantener, o clic derecho", "un menú corto: copiar, pegar, borrar; sobre una letra, la fila entera"],
-        ["el tempo en la pantalla", "tócalo para cambiarlo, o márcalo con toques"],
+        ["mantener, o clic derecho", "un menú corto: copiar, pegar, borrar; sobre una letra, la fila entera y su nombre"],
+        ["la tonalidad y el tempo en la pantalla", "tócalos para cambiarlos; el tempo se puede marcar con toques"],
         ["clic en +", "entra en un loop vacío"],
         ["una letra a la izquierda", "toca toda la fila"],
       ],
@@ -67,10 +69,12 @@
       [
         ["pads, teclas", "tocan; cuanto más arriba en el pad, más fuerte. rec conserva lo que tocas"],
         ["capturar", "conserva lo que acabas de tocar, aunque no estuviera grabando"],
+        ["batería", "un carril de dieciséis pasos por sonido; editar guarda ritmos de los que partir"],
         ["un paso", "clic para cambiarlo; mantén (o clic derecho) para ver su nivel, probabilidad y repeticiones"],
         ["el roll", "clic para escribir, arrastra para mover, el borde derecho para estirar, clic en una nota para elegirla"],
         ["acordes", "cada nota se vuelve el acorde de la tonalidad"],
-        ["loop", "copiar, pegar, ajustar a la rejilla, vaciar"],
+        ["editar", "copiar, pegar, ajustar a la rejilla, vaciar; en un roll, mover y armonía"],
+        ["la letra de arriba", "la misma pista en otra sección"],
       ],
     ],
     [
@@ -78,7 +82,7 @@
       [
         ["fx", "ocho efectos que suenan mientras los mantienes (shift 1 a 8)"],
         ["mix", "niveles, lugar, sala y eco; el pump hace sitio al bombo"],
-        ["timeline", "clic en un carril para poner el loop en mano; arrastra los clips para moverlos"],
+        ["timeline", "elige una sección y haz clic en un carril para poner el loop de esa pista; arrastra los clips para moverlos"],
         ["exportar", "el timeline o una fila; la mezcla, un archivo por pista, midi"],
       ],
     ],

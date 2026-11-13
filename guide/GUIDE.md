@@ -6,7 +6,9 @@ Mjolnir has four faces along the top: **loops**, **timeline**, **mix** and **set
 
 ![Loops](img/desk-loops.jpg)
 
-Tracks run across, sections (a to h) run down. Each cell is a loop, drawn in its track's colour.
+The first time, Mjolnir asks one thing: **start a beat** (an empty set, straight into the drums) or **listen first** (the demo, playing).
+
+Tracks run across, sections (a to h) run down. Each cell is a loop, drawn in its track's colour. Only the rows in use are shown, and one empty row under them to grow into.
 
 | Do | To |
 |---|---|
@@ -14,29 +16,31 @@ Tracks run across, sections (a to h) run down. Each cell is a loop, drawn in its
 | double click a loop | step inside it |
 | hold a loop, or right click it | a short menu: open, copy, paste, copy to the next free row, delete loop |
 | hold a track's name, or right click it | open, mute, remove track |
-| hold a section's letter, or right click it | play the row, copy it to the next empty row, clear it |
+| hold a section's letter, or right click it | play the row, rename it, copy it to the next empty row, clear it |
 | click `+` beside the tracks | add a track: drums or keys; it opens on its sounds |
 | touch the bpm on the screen | change the tempo: −, +, or tap it in |
+| touch the key on the screen | choose the root and the scale |
 | click `+` | step into an empty loop |
 | click a letter | play the whole row |
 | click a track's name | step into that track |
-| `+` at the right | add a drum or a keys track |
 
-Under the grid: rename the section, add one, copy it (with all its loops), delete it.
+A new variation is a copy: hold a section's letter and copy the row down, then change what should change.
 
 ## Inside a track
 
-The top row goes back to the loops and jumps between tracks; the second row picks the section, **captures**, and switches between **notes** and **sound**.
+One row at the top: back to the loops, the tracks, the section's letter (touch it for the same track in another section; `loop` marks the ones it already has), and **sound**, which swaps the notes for the track's sound and back.
 
 **Capture** keeps what you just played as the loop, even though nothing was recording. **rec** (at the foot) records what you play from now on, snapped to the grid, with a count-in if you set one.
 
 ### A drum track
 
-Sixteen pads and sixteen step keys. Touch a pad to hear it and select it; the higher you touch it, the harder it hits. The step keys write the selected pad into the loop.
+Each sound has a lane of sixteen steps: touch a step to switch it. The kick, the snare and the hats are there from the start; any pad you play gets a lane of its own. A lane's name plays its sound.
+
+Under the lanes, sixteen pads to play by hand; the higher you touch one, the harder it hits. **pads** folds them away and gives the lanes the room.
 
 Hold a lit step (or right-click it) to see its **level**, its **chance** of sounding on each pass, and how many times it **repeats** inside the step.
 
-`bars` sets the loop's length; making it longer repeats what is there. `loop` opens copy, paste, snap to the grid and clear.
+`bars` sets the loop's length (making it longer repeats what is there) and which bar is on screen. **edit** holds beats to start from (boom bap, lo-fi lazy, trap half-time, trap bounce, with hats to lay over them) and the loop's copy, paste, snap to the grid and clear.
 
 ### A melodic track
 
@@ -62,7 +66,7 @@ A synth sound shows every one of its parts below: the engine, three tone knobs w
 
 ![Timeline](img/desk-song.jpg)
 
-One lane per track. Each lane has a loop in hand (its picker); click the lane to place it. Drag a clip to move it, its right edge to change its length, hold ctrl or alt to drag a copy, double click to open the loop. `add a row` puts a whole section at the end. The ruler sets where playback starts. Press play on this face to hear the song.
+One lane per track. Choose a section at the top; a click on a lane places that track's loop of it, and `add to the end` puts the whole section after the last bar. Drag a clip to move it, its right edge to change its length, hold ctrl or alt to drag a copy, double click to open the loop. The ruler sets where playback starts. Press play on this face to hear the song. **edit**, at the foot, opens the fades, the zoom and clear.
 
 **Export** bounces the timeline, or just the row on screen as a loop: the mix, one file per track, MIDI. Several files arrive as one zip.
 
@@ -70,7 +74,7 @@ One lane per track. Each lane has a loop in hand (its picker); click the lane to
 
 ![Mix and the punch strip](img/desk-mix.jpg)
 
-Each track: level (with its meter), pan, room, echo, mute, solo. The master: level, the size of the room, the pump (how much everything makes room for the kick), tape, vinyl, warmth.
+Each track: level (with its meter), pan, room, echo, mute, solo. On a phone a strip is its name, its level and its gates; `···` opens its pan, room and echo. The master: level, the size of the room, the pump (how much everything makes room for the kick), tape, vinyl, warmth.
 
 ## fx: the punch strip
 
@@ -78,7 +82,7 @@ Eight effects over the whole mix that sound only while held (a finger, or shift 
 
 ## Set
 
-Your sets are kept on this device; copy them, remove them, save them to a file or open one. Three demos show what the instrument sounds like. Here too: the set's name, tempo (or tap it), swing, key; the metronome, snap and count-in; the theme, the language, and what MIDI controllers are connected.
+Your sets are kept on this device; copy them, remove them, save them to a file or open one. Three demos show what the instrument sounds like. Here too: the set's name, tempo, swing, key (also on the screen, from any face); the metronome, snap and count-in; the theme, the language, and what MIDI controllers are connected.
 
 ## Keys
 

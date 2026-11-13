@@ -10,6 +10,7 @@
   import Mix from "./components/Mix.svelte";
   import Punch from "./components/Punch.svelte";
   import Help from "./components/Help.svelte";
+  import Welcome from "./components/Welcome.svelte";
   import Export from "./components/Export.svelte";
   import {
     app,
@@ -132,7 +133,8 @@
     } else if (e.key === "Escape" && (app.help || app.exporting)) {
       app.help = false;
       app.exporting = false;
-    } else if (e.key === "Escape" && app.open) {
+    } else if (e.key === "Escape" && app.open && !e.defaultPrevented) {
+      // (a sheet or a menu that Escape just closed has already answered it)
       app.open = false;
     } else if (e.key === "Tab" && !mod) {
       e.preventDefault();
@@ -196,6 +198,7 @@
     </footer>
   </div>
 {/if}
+{#if app.welcome}<Welcome />{/if}
 {#if app.help}<Help />{/if}
 {#if app.exporting}<Export />{/if}
 
