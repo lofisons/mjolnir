@@ -4,6 +4,8 @@
   // sample of what is sounding; older frames fade like a long exposure.
   import { onMount } from "svelte";
   import { app, act, signal, track, playing, trackColor, tapTempo } from "../lib/app.svelte";
+  import { NOTE_NAMES } from "../lib/api";
+  import KeyPicker from "./KeyPicker.svelte";
 
   let canvas: HTMLCanvasElement;
   let box: HTMLDivElement;
@@ -18,26 +20,49 @@
 
   // ---- the tempo, changed where it is read
   const bpm = $derived(Math.round(app.project?.bpm ?? 0));
+  // one sheet under the readings: the tempo, or the key
   let tempo = $state<{ right: number; top: number } | null>(null);
+  let keyOpen = $state<{ right: number; top: number } | null>(null);
   let sheet = $state<HTMLDivElement | null>(null);
+  const under = (e: MouseEvent) => {
+    const b = (e.currentTarget as HTMLElement).closest(".br")!.getBoundingClientRect();
+    return { right: Math.max(8, innerWidth - b.right - 8), top: b.bottom + 6 };
+  };
   function openTempo(e: MouseEvent) {
-    if (tempo) return void (tempo = null);
-    const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    tempo = { right: Math.max(8, innerWidth - b.right - 8), top: b.bottom + 6 };
+    keyOpen = null;
+    tempo = tempo ? null : under(e);
   }
+  function openKey(e: MouseEvent) {
+    tempo = null;
+    keyOpen = keyOpen ? null : under(e);
+  }
+  const keyName = $derived.by(() => {
+    const sc = app.project?.scale;
+    if (!sc) return "";
+    const kind = (app.info?.catalog.scales.find((k) => k.id === sc.kind)?.label ?? sc.kind).toLowerCase();
+    return `${NOTE_NAMES[sc.root % 12].toLowerCase()} ${kind}`;
+  });
   const nudge = (by: number) => act({ type: "set_bpm", bpm: Math.min(200, Math.max(40, bpm + by)) });
   $effect(() => {
-    if (!tempo) return;
+    if (!tempo && !keyOpen) return;
+    const shut = () => {
+      tempo = null;
+      keyOpen = null;
+    };
     const away = (e: Event) => {
       const t = e.target as Element;
-      if (!sheet?.contains(t) && !t.closest?.(".bpm")) tempo = null;
+      if (!sheet?.contains(t) && !t.closest?.(".br")) shut();
     };
-    const key = (e: KeyboardEvent) => e.key === "Escape" && (tempo = null);
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      shut();
+    };
     addEventListener("pointerdown", away, true);
-    addEventListener("keydown", key);
+    addEventListener("keydown", key, true);
     return () => {
       removeEventListener("pointerdown", away, true);
-      removeEventListener("keydown", key);
+      removeEventListener("keydown", key, true);
     };
   });
 
@@ -134,11 +159,20 @@
       {app.project?.record.notes && playing() ? tx("recording") : playing() ? tx("playing") : tx("stopped")}
     </span>
   </div>
-  <button class="plain br bpm" aria-label="tempo: {bpm} bpm" aria-expanded={!!tempo} onclick={openTempo}>
-    <span>{bpm}</span>
-    <span class="label">bpm</span>
-  </button>
+  <div class="br">
+    <button class="plain read" aria-label="key: {keyName}" aria-expanded={!!keyOpen} onclick={openKey}>{keyName}</button>
+    <button class="plain read" aria-label="tempo: {bpm} bpm" aria-expanded={!!tempo} onclick={openTempo}>
+      <span>{bpm}</span>
+      <span class="label">bpm</span>
+    </button>
+  </div>
 </div>
+
+{#if keyOpen}
+  <div class="tempo keys" bind:this={sheet} role="group" aria-label="key" style="right: {keyOpen.right}px; top: {keyOpen.top}px">
+    <KeyPicker />
+  </div>
+{/if}
 
 {#if tempo}
   <div class="tempo" bind:this={sheet} role="group" aria-label="tempo" style="right: {tempo.right}px; top: {tempo.top}px">
@@ -196,17 +230,29 @@
     color: var(--fg-muted);
   }
   /* the one reading on the screen that is also a control */
-  .bpm {
+  .br {
     pointer-events: auto;
+    gap: 2px;
+    right: 8px;
+    bottom: 4px;
+  }
+  .read {
     height: auto;
     padding: 4px 8px;
-    margin: -4px -8px;
     border: 0;
     cursor: pointer;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
   }
-  .bpm:hover,
-  .bpm[aria-expanded="true"] {
+  .read:hover,
+  .read[aria-expanded="true"] {
     background: var(--hover);
+  }
+  .tempo.keys {
+    display: block;
+    padding: 8px;
+    width: min(340px, calc(100vw - 16px));
   }
   .tempo {
     position: fixed;

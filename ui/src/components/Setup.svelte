@@ -18,6 +18,8 @@
     engine,
   } from "../lib/app.svelte";
   import { NOTE_NAMES } from "../lib/api";
+  import KeyPicker from "./KeyPicker.svelte";
+  let keyOpen = $state(false);
 
   const p = $derived(app.project);
   const kinds = $derived(app.info?.catalog.scales ?? []);
@@ -33,10 +35,6 @@
     ["signal.mjolnir", "signal"],
   ];
 
-  async function scale(root: number, kind: string) {
-    await act({ type: "set_scale", root, kind, track: null });
-    await refreshPads();
-  }
   function setTheme(t: string) {
     theme = t;
     document.documentElement.dataset.theme = t;
@@ -139,16 +137,13 @@
           <button aria-label="faster" onclick={() => act({ type: "set_bpm", bpm: p.bpm + 1 })}>+</button>
         </div>
       </div>
-      <div class="roots">
-        {#each NOTE_NAMES as n, i}
-          <button aria-pressed={p.scale.root === i} onclick={() => scale(i, p.scale.kind)}>{n}</button>
-        {/each}
+      <div class="line">
+        <span class="label">key</span>
+        <button aria-expanded={keyOpen} aria-pressed={keyOpen} onclick={() => (keyOpen = !keyOpen)}>
+          {NOTE_NAMES[p.scale.root % 12].toLowerCase()} {(kinds.find((k) => k.id === p.scale.kind)?.label ?? p.scale.kind).toLowerCase()}
+        </button>
       </div>
-      <div class="line wrap">
-        {#each kinds as k}
-          <button aria-pressed={p.scale.kind === k.id} onclick={() => scale(p.scale.root, k.id)}>{k.label.toLowerCase()}</button>
-        {/each}
-      </div>
+      {#if keyOpen}<KeyPicker />{/if}
     </section>
 
     <section>
@@ -262,19 +257,5 @@
     font: var(--title);
     min-width: 3ch;
     text-align: center;
-  }
-  .roots {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 2px;
-    margin-top: 12px;
-  }
-  .roots button {
-    padding: 0;
-  }
-  @media (max-width: 520px) {
-    .roots {
-      grid-template-columns: repeat(6, 1fr);
-    }
   }
 </style>

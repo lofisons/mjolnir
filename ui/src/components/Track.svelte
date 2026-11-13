@@ -5,16 +5,41 @@
   import Play from "./Play.svelte";
   import Melodic from "./Melodic.svelte";
   import Sound from "./Sound.svelte";
-  import { app, selectTrack, selectSection, trackColor, track, capture } from "../lib/app.svelte";
+  import Menu, { type MenuItem } from "./Menu.svelte";
+  import { app, selectTrack, selectSection, trackColor, track } from "../lib/app.svelte";
 
   let { wide = false }: { wide?: boolean } = $props();
   const tracks = $derived(app.project?.tracks ?? []);
   const scenes = $derived(app.project?.scenes ?? []);
+  const letter = (i: number) => {
+    const n = scenes[i]?.name ?? "";
+    return n && n.length <= 3 ? n.toLowerCase() : String(i + 1);
+  };
+
+  // the section on screen is one word; the others are a touch away
+  let menu = $state<{ x: number; y: number; title: string; items: MenuItem[] } | null>(null);
+  function sections(e: MouseEvent) {
+    const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const t = track();
+    menu = {
+      x: b.right - 168,
+      y: b.bottom + 4,
+      title: tx("section"),
+      items: scenes.map((sc, i) => ({
+        // a dot marks the sections where this track already has a loop
+        label: letter(i),
+        note: t?.slots[i] ? tx("loop") : undefined,
+        on: i === app.section,
+        pick: () => void selectSection(i),
+      })),
+    };
+  }
 </script>
 
 <div class="track from-right">
+  <!-- one line: the way back, the tracks, the section, and the track's sound -->
   <div class="head">
-    <button class="back" aria-label="back to the loops" onclick={() => (app.open = false)}>← loops</button>
+    <button class="back" aria-label="back to the loops" onclick={() => (app.open = false)}>←<span class="word">loops</span></button>
     <div class="tabs" role="tablist" aria-label="tracks">
       {#each tracks as t, i}
         <button
@@ -29,21 +54,13 @@
         </button>
       {/each}
     </div>
-  </div>
-  <div class="head">
-    <div class="tabs" role="tablist" aria-label="sections">
-      {#each scenes as s, i}
-        <button class="plain tab narrow" role="tab" aria-selected={app.section === i} onclick={() => selectSection(i)}>
-          {s.name.length <= 3 ? s.name.toLowerCase() : i + 1}
-        </button>
-      {/each}
-    </div>
-    <button class="keep" title="keep what you just played as this loop" onclick={capture}>{tx("capture")}</button>
+    <button class="sec" aria-haspopup="menu" aria-label="section {scenes[app.section]?.name ?? ''}" onclick={sections}>
+      <span class="label">{tx("section")}</span>{letter(app.section)}
+    </button>
     {#if !wide}
-      <div class="panes" role="tablist" aria-label="view">
-        <button role="tab" aria-selected={app.pane === "notes"} onclick={() => (app.pane = "notes")}>{tx("notes")}</button>
-        <button role="tab" aria-selected={app.pane === "sound"} onclick={() => (app.pane = "sound")}>{tx("sound")}</button>
-      </div>
+      <button class="pane" role="tab" aria-selected={app.pane === "sound"} class:on={app.pane === "sound"} onclick={() => (app.pane = app.pane === "sound" ? "notes" : "sound")}>
+        {tx("sound")}
+      </button>
     {/if}
   </div>
   <div class="body">
@@ -52,11 +69,12 @@
     {:else}<Play />{/if}
   </div>
 </div>
+{#if menu}<Menu {...menu} onclose={() => (menu = null)} />{/if}
 
 <style>
   .track {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr);
     height: 100%;
   }
@@ -64,7 +82,7 @@
     display: flex;
     align-items: stretch;
     border-bottom: 1px solid var(--line);
-    min-height: var(--row);
+    min-height: 40px;
     min-width: 0;
   }
   .back {
@@ -89,12 +107,6 @@
     padding: 0 8px;
     border-right: 1px solid var(--line);
     color: var(--fg-muted);
-  }
-  .tab.narrow {
-    flex: 1 1 32px;
-    max-width: 48px;
-    padding: 0;
-    justify-content: center;
   }
   /* the selected track wears its colour as a line, not as a fill: the fill
      belongs to what is switched on */
@@ -126,28 +138,39 @@
       display: none;
     }
   }
-  .keep {
-    flex: none;
-    align-self: center;
-    height: calc(var(--row) - 8px);
-    min-height: 24px;
-    margin: 0 4px 0 8px;
-    padding: 0 8px;
+  .back .word {
+    margin-left: 6px;
   }
-  .panes {
+  .sec,
+  .pane {
     flex: none;
-    display: flex;
-    padding: 0 16px 0 0;
+    height: auto;
+    border: 0;
+    border-left: 1px solid var(--line);
+    padding: 0 12px;
+    display: inline-flex;
     align-items: center;
+    gap: 6px;
   }
-  .panes button {
-    height: calc(var(--row) - 8px);
-    min-height: 24px;
+  .pane.on {
+    background: var(--fg);
+    color: var(--bg);
   }
-  .panes button + button {
-    border-left: 0;
+  .sec .label {
+    color: inherit;
+    opacity: 0.62;
   }
-  .body {
-    min-height: 0;
+  @media (max-width: 520px) {
+    .back {
+      padding: 0 12px;
+    }
+    .back .word,
+    .sec .label {
+      display: none;
+    }
+    .sec {
+      min-width: 44px;
+      justify-content: center;
+    }
   }
 </style>

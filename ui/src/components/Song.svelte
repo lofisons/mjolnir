@@ -12,7 +12,7 @@
   const scenes = $derived(app.project?.scenes ?? []);
   const song = $derived(app.project?.song);
   const clips = $derived(song?.clips ?? []);
-  const LANE = 56;
+  const LANE = 44;
   const RULER = 24;
   let barW = $state(22);
 
@@ -25,16 +25,15 @@
     return n && n.length <= 3 ? n.toLowerCase() : String(slot + 1);
   };
 
-  // ---- the loop each lane has in hand
-  let brush = $state<Record<number, number>>({});
-  const filled = (ti: number) => tracks[ti].slots.map((p, i) => (p ? i : -1)).filter((i) => i >= 0);
-  function inHand(ti: number): number | null {
-    const t = tracks[ti];
-    const b = brush[t.id];
-    if (b != null && t.slots[b]) return b;
-    if (t.slots[app.section]) return app.section;
-    return filled(ti)[0] ?? null;
-  }
+  // ---- one section in hand: a touch on a lane places that track's loop of it,
+  // and "add" lays the whole section at the end
+  let chosen = $state<number | null>(null);
+  const hand = $derived.by(() => {
+    if (chosen != null && used.some((u) => u.i === chosen)) return chosen;
+    if (used.some((u) => u.i === app.section)) return app.section;
+    return used[0]?.i ?? null;
+  });
+  let more = $state(false);
 
   let picked = $state<{ track: number; start: number } | null>(null);
   const pickedIndex = $derived(picked ? clips.findIndex((c) => c.track === picked!.track && c.start === picked!.start) : -1);
@@ -42,9 +41,12 @@
   const patternOf = (c: SongClip) => tracks[laneOf(c.track)]?.slots[c.slot] ?? null;
 
   async function place(ti: number, bar: number) {
-    const slot = inHand(ti);
-    if (slot == null) {
-      app.note = `${tracks[ti].name.toLowerCase()} has no loop yet → make one in loops`;
+    const slot = hand;
+    if (slot == null || !tracks[ti].slots[slot]) {
+      app.note =
+        slot == null
+          ? "there are no loops yet → make one in loops"
+          : `${tracks[ti].name.toLowerCase()} has no loop in section ${letter(slot)} → choose another section, or write one`;
       return;
     }
     app.track = ti;
@@ -119,33 +121,28 @@
 
 <div class="song">
   <div class="tools">
-    <span class="label">{tx("add a row")}</span>
-    {#each used as s}
-      <button onclick={() => act({ type: "append_scene", scene: s.i })}>{letter(s.i)}</button>
-    {/each}
-    {#if !used.length}<span class="quiet">{tx("no loops yet")}</span>{/if}
+    {#if used.length}
+      <span class="hand" role="group" aria-label="section in hand">
+        {#each used as s}
+          <button class="sq" aria-pressed={hand === s.i} aria-label="section {s.name}" onclick={() => (chosen = s.i)}>{letter(s.i)}</button>
+        {/each}
+      </span>
+      <button class="add" disabled={hand == null} onclick={() => hand != null && act({ type: "append_scene", scene: hand })}>
+        {tx("add to the end")}
+      </button>
+    {:else}
+      <span class="quiet">{tx("no loops yet")}</span>
+    {/if}
     <span class="grow"></span>
     {#if pickedIndex >= 0}<button onclick={remove}>{tx("remove clip")}</button>{/if}
-    <button aria-label="zoom out" onclick={() => (barW = Math.max(10, barW - 6))}>−</button>
-    <button aria-label="zoom in" onclick={() => (barW = Math.min(76, barW + 6))}>+</button>
   </div>
 
   <div class="body">
     <div class="heads">
       <div class="corner label">{songBars} bars</div>
       {#each tracks as t, ti}
-        {@const slots = filled(ti)}
-        <div class="head" class:sel={app.track === ti} style="height: {LANE}px; --id: {trackColor(t)}">
+        <div class="head" class:sel={app.track === ti} class:none={hand == null || !t.slots[hand]} style="height: {LANE}px; --id: {trackColor(t)}">
           <button class="plain tname" onclick={() => (app.track = ti)}>{t.name.toLowerCase()}</button>
-          <select
-            aria-label="loop in hand for {t.name}"
-            disabled={!slots.length}
-            value={inHand(ti) ?? ""}
-            onchange={(e) => (brush[t.id] = +e.currentTarget.value)}
-          >
-            {#each slots as s}<option value={s}>loop {letter(s)}</option>{/each}
-            {#if !slots.length}<option value="">no loops</option>{/if}
-          </select>
         </div>
       {/each}
     </div>
@@ -165,7 +162,7 @@
             style="top: {RULER + ti * LANE}px; height: {LANE}px; background-size: {barW}px 100%, {barW * 4}px 100%"
             role="button"
             tabindex="-1"
-            aria-label="{t.name}: place the loop in hand"
+            aria-label="{t.name}: place its loop of the section in hand"
             onclick={(e) => laneClick(e, ti)}
             onkeydown={() => {}}
           ></div>
@@ -221,30 +218,39 @@
   </div>
 
   <div class="tools foot">
-    <span>{Math.floor(seconds / 60)}:{String(Math.round(seconds % 60)).padStart(2, "0")}</span>
+    <span class="time">{Math.floor(seconds / 60)}:{String(Math.round(seconds % 60)).padStart(2, "0")}</span>
     <button aria-pressed={song?.looping ?? false} onclick={() => act({ type: "set_song_looping", looping: !song?.looping })}>loop</button>
-    <label class="label">
-      fade in
-      <select
-        value={song?.fade_in ?? 0}
-        onchange={(e) => act({ type: "set_song_fades", fade_in: +e.currentTarget.value, fade_out: song?.fade_out ?? 0 })}
-      >
-        {#each [0, 1, 2, 4, 8] as b}<option value={b}>{b || "none"}</option>{/each}
-      </select>
-    </label>
-    <label class="label">
-      fade out
-      <select
-        value={song?.fade_out ?? 0}
-        onchange={(e) => act({ type: "set_song_fades", fade_in: song?.fade_in ?? 0, fade_out: +e.currentTarget.value })}
-      >
-        {#each [0, 1, 2, 4, 8] as b}<option value={b}>{b || "none"}</option>{/each}
-      </select>
-    </label>
+    <button aria-expanded={more} aria-pressed={more} onclick={() => (more = !more)}>{tx("edit")}</button>
     <span class="grow"></span>
-    <button disabled={!songBars} onclick={() => act({ type: "clear_song" })}>{tx("clear")}</button>
     <button onclick={() => (app.exporting = true)}>{tx("export")}</button>
   </div>
+  {#if more}
+    <div class="tools foot from-right">
+      <label class="label">
+        fade in
+        <select
+          value={song?.fade_in ?? 0}
+          onchange={(e) => act({ type: "set_song_fades", fade_in: +e.currentTarget.value, fade_out: song?.fade_out ?? 0 })}
+        >
+          {#each [0, 1, 2, 4, 8] as b}<option value={b}>{b || "none"}</option>{/each}
+        </select>
+      </label>
+      <label class="label">
+        fade out
+        <select
+          value={song?.fade_out ?? 0}
+          onchange={(e) => act({ type: "set_song_fades", fade_in: song?.fade_in ?? 0, fade_out: +e.currentTarget.value })}
+        >
+          {#each [0, 1, 2, 4, 8] as b}<option value={b}>{b || "none"}</option>{/each}
+        </select>
+      </label>
+      <span class="grow"></span>
+      <button aria-label="zoom out" onclick={() => (barW = Math.max(10, barW - 6))}>−</button>
+      <span class="label">zoom</span>
+      <button aria-label="zoom in" onclick={() => (barW = Math.min(76, barW + 6))}>+</button>
+      <button disabled={!songBars} onclick={() => act({ type: "clear_song" })}>{tx("clear")}</button>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -421,5 +427,35 @@
     background: var(--fg);
     pointer-events: none;
     z-index: 2;
+  }
+  /* the section in hand: letters, the chosen one inverted */
+  .hand {
+    display: inline-flex;
+    gap: 4px;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  /* the top row never wraps: picking a clip must not push the lanes down */
+  .tools:not(.foot) {
+    flex-wrap: nowrap;
+  }
+  .tools:not(.foot) > button,
+  .hand > button {
+    flex: none;
+    white-space: nowrap;
+  }
+  .sq {
+    min-width: 36px;
+    padding: 0;
+  }
+  /* a track with no loop in the section in hand: its lane has nothing to place */
+  .head.none .tname {
+    color: var(--fg-faint);
+  }
+  .time {
+    font-variant-numeric: tabular-nums;
+    min-width: 4ch;
   }
 </style>

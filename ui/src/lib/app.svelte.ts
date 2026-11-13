@@ -49,6 +49,8 @@ export const app = $state({
   /** The punch strip is out. */
   punch: false,
   help: false,
+  /** The first time: a choice between a blank set and a finished piece. */
+  welcome: false,
   /** Connected MIDI controllers. */
   midi: [] as string[],
 });
@@ -143,6 +145,7 @@ export async function start(): Promise<void> {
             .catch(() => null)
         : null;
       if (demo) project = await engine.call<Project>({ type: "open_project", json: demo }).catch(() => undefined);
+      app.welcome = first && !safe(() => localStorage.getItem("mjolnir.welcomed"));
       project ??= await engine.call<Project>({ type: "get_project" });
       unsaved = true;
     }
@@ -206,6 +209,8 @@ async function show(json: string | null, id: string): Promise<void> {
   app.track = 0;
   app.section = 0;
   app.open = false;
+  // a set just opened is looked at from its loops
+  app.face = "loops";
   unsaved = true;
   await refreshPads();
   await keepNow();
@@ -406,11 +411,10 @@ export async function selectSection(s: number): Promise<void> {
 }
 
 /** Turn a step of the selected pad on or off; the loop is made when missing. */
-export async function toggleStep(step: number): Promise<void> {
+export async function toggleStep(step: number, pitch = padPitch()): Promise<void> {
   const t = app.track;
   const s = app.section;
   if (!pattern(t, s)) await act({ type: "create_pattern", track: t, slot: s, bars: 1 });
-  const pitch = padPitch();
   const start = step * TICKS_PER_STEP;
   await act({ type: "toggle_step", track: t, slot: s, step, pitch, velocity: 0.8 });
   // writing is not asking: a step's detail shows when it is held, not every time one is written
@@ -428,7 +432,8 @@ async function hear(t: number, s: number): Promise<void> {
 export async function writeNote(pitches: number[], step: number, steps: number): Promise<void> {
   const t = app.track;
   const s = app.section;
-  if (!pattern(t, s)) await act({ type: "create_pattern", track: t, slot: s, bars: 1 });
+  // a melody wants more room than a beat: its loop starts two bars long
+  if (!pattern(t, s)) await act({ type: "create_pattern", track: t, slot: s, bars: 2 });
   for (const pitch of pitches)
     await act({
       type: "add_note",

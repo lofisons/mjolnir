@@ -6,7 +6,7 @@
   import Roll from "./Roll.svelte";
   import Keys from "./Keys.svelte";
   import NoteDetail from "./NoteDetail.svelte";
-  import { app, act, live, refreshPads, track, pattern, setBars, pasteLoop } from "../lib/app.svelte";
+  import { app, act, live, refreshPads, track, pattern, setBars, pasteLoop, capture as keep } from "../lib/app.svelte";
   import { INTERVALS, intervalFrom, shiftInKey, type ChordKind, type Note } from "../lib/api";
 
   const t = $derived(track());
@@ -24,6 +24,18 @@
   type Sheet = "length" | "bars" | "chords" | "edit";
   let sheet = $state<Sheet | null>(null);
   const toggle = (which: Sheet) => (sheet = sheet === which ? null : which);
+  // Escape closes an open sheet, and only that: it is answered before the app hears it
+  $effect(() => {
+    if (!sheet) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      sheet = null;
+    };
+    addEventListener("keydown", esc, true);
+    return () => removeEventListener("keydown", esc, true);
+  });
+
   const bars = $derived(pat?.bars ?? 1);
   const lengthName = $derived(LENGTHS.find(([n]) => n === app.noteLen)?.[1] ?? "1/8");
   const chordName = $derived(CHORDS.find(([m]) => m === (t?.chord_mode ?? null))?.[1] ?? "off");
@@ -107,15 +119,6 @@
     live({ type: "pad_off", track: app.track, pad: i });
   }
 </script>
-
-<svelte:window
-  onkeydown={(e) => {
-    if (e.key === "Escape" && sheet) {
-      e.preventDefault();
-      sheet = null;
-    }
-  }}
-/>
 
 {#if t}
   <div class="melodic">
@@ -230,6 +233,7 @@
         pads
       </button>
       <span class="grow"></span>
+      <button class="tool" title="keep what you just played as this loop" onclick={keep}>{tx("capture")}</button>
       <span class="pair">
         <button class="tool sq" aria-label="octave down" onclick={() => octave(-1)}>−</button>
         <span class="unit" aria-label="octave">{t.octave}</span>

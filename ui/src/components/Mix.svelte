@@ -19,6 +19,10 @@
     on ? live({ type: "touch", track: t, param, touching: true }) : void act({ type: "touch", track: t, param, touching: false });
   const shown = (t: number, i: number) => app.status?.tracks[t]?.macros[i] ?? tracks[t].macros[i];
 
+  // on a phone a strip is its name, its fader and its gates; the rest opens
+  // for one strip at a time
+  let more = $state<number | null>(null);
+
   function master(key: "volume" | "tape" | "vinyl" | "warmth" | "space" | "pump", v: number) {
     if (!p) return;
     p.master[key] = v;
@@ -29,7 +33,7 @@
 {#if p}
   <div class="mix">
     {#each tracks as t, i}
-      <div class="strip" class:sel={app.track === i} style="--id: {trackColor(t)}">
+      <div class="strip" class:sel={app.track === i} class:open={more === i} style="--id: {trackColor(t)}">
         <button class="plain name" class:off={t.mute} onclick={() => openCell(i, app.section)} title="open">
           <span class="chip"></span>{t.name.toLowerCase()}
         </button>
@@ -76,6 +80,12 @@
           />
         </div>
         <div class="gates">
+          <button
+            class="fx"
+            aria-expanded={more === i}
+            aria-label="{t.name}: pan, room, echo"
+            onclick={() => (more = more === i ? null : i)}>···</button
+          >
           <button aria-pressed={t.mute} onclick={() => act({ type: "set_mute", track: i, mute: !t.mute })}>mute</button>
           <button aria-pressed={t.solo} onclick={() => act({ type: "set_solo", track: i, solo: !t.solo })}>solo</button>
         </div>
@@ -154,6 +164,9 @@
   .gates button {
     padding: 0 8px;
   }
+  .fx {
+    display: none;
+  }
   .master {
     grid-template-columns: minmax(72px, 0.9fr) minmax(88px, 2fr);
     border-bottom: 0;
@@ -186,6 +199,17 @@
     }
     .strip .gates {
       grid-area: gates;
+    }
+    .fx {
+      display: inline-flex;
+      align-items: center;
+      letter-spacing: 0.1em;
+    }
+    .strip:not(.master):not(.open) {
+      grid-template-areas: "name gates" "fade fade";
+    }
+    .strip:not(.master):not(.open) .knobs {
+      display: none;
     }
     .master {
       grid-template-areas: "name name" "fade fade" "knobs knobs";
