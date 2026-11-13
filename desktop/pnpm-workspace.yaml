@@ -1,0 +1,4 @@
+# Electron fetches its own binary when it is installed: the one package here
+# allowed to run a script of its own.
+allowBuilds:
+  electron: true

@@ -104,11 +104,11 @@
     const s = app.status;
     if (s?.count_in) return `${tx("count in")} ${s.count_in}`;
     if (recording) return tx("recording · play the pads");
-    if (s?.song_mode && playing()) return tx("playing the song");
+    if (s?.song_mode && playing()) return tx("playing the timeline");
     if (playing()) return `${tx("playing")} · ${(scenes[app.section]?.name ?? "").toLowerCase()}`;
     if (app.face === "loops" && !app.open)
       return tx(
-        app.project?.tracks.some((t) => t.slots.some(Boolean)) ? "click plays a loop · double click opens it" : "touch + to begin",
+        app.project?.tracks.some((t) => t.slots.some(Boolean)) ? "click: play · double: open · hold: more" : "touch + to begin",
       );
     return tx("stopped");
   });
@@ -158,7 +158,7 @@
       <span class="app">mjolnir</span>
       <div class="nav" role="tablist">
         {#each FACES as f}
-          <button class="plain tab" role="tab" aria-selected={app.face === f} onclick={() => go(f)}>{f}</button>
+          <button class="plain tab" role="tab" aria-selected={app.face === f} onclick={() => go(f)}>{f === "song" ? "timeline" : f}</button>
         {/each}
       </div>
       <div class="history">
@@ -246,6 +246,11 @@
     grid-template-rows: minmax(72px, 13vh) minmax(0, 1fr);
     min-height: 0;
   }
+  @media (max-width: 520px) {
+    .work {
+      grid-template-rows: 72px minmax(0, 1fr);
+    }
+  }
   .face {
     min-height: 0;
     overflow: hidden;
@@ -300,6 +305,19 @@
   }
   .primary {
     min-width: 72px;
+  }
+  /* a phone has no room for the name beside four faces and the way back */
+  @media (max-width: 460px) {
+    .app {
+      display: none;
+    }
+    .bar {
+      gap: 4px;
+      padding: 0 8px;
+    }
+    .tab {
+      padding: 0 8px;
+    }
   }
   @media (pointer: coarse) {
     .status button {

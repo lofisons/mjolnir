@@ -1,7 +1,7 @@
 {
   "name": "mjolnir",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "wasm": "sh scripts/build-wasm.sh",
@@ -17,7 +17,7 @@
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@tsconfig/svelte": "^5.0.4",
+    "@tsconfig/svelte": "5.0.8",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "typescript": "^5.9.3",

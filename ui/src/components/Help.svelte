@@ -10,6 +10,8 @@
       [
         ["click a loop", "play it; again to stop it"],
         ["double click", "step inside"],
+        ["hold, or right click", "a short menu: copy, paste, delete; on a letter, the whole row"],
+        ["the tempo on the screen", "touch it to change it, or tap it in"],
         ["click +", "step into an empty loop"],
         ["a letter on the left", "play the whole row"],
       ],
@@ -30,8 +32,8 @@
       [
         ["fx", "eight effects that sound while held (shift 1 to 8)"],
         ["mix", "levels, place, room and echo; the pump makes room for the kick"],
-        ["song", "click a lane to place the loop in hand; drag clips to move them"],
-        ["export", "the song or one row; the mix, one file per track, midi"],
+        ["timeline", "click a lane to place the loop in hand; drag clips to move them"],
+        ["export", "the timeline or one row; the mix, one file per track, midi"],
       ],
     ],
     [
@@ -54,6 +56,8 @@
       [
         ["clic en un loop", "lo toca; otro clic lo para"],
         ["doble clic", "entra en él"],
+        ["mantener, o clic derecho", "un menú corto: copiar, pegar, borrar; sobre una letra, la fila entera"],
+        ["el tempo en la pantalla", "tócalo para cambiarlo, o márcalo con toques"],
         ["clic en +", "entra en un loop vacío"],
         ["una letra a la izquierda", "toca toda la fila"],
       ],
@@ -74,8 +78,8 @@
       [
         ["fx", "ocho efectos que suenan mientras los mantienes (shift 1 a 8)"],
         ["mix", "niveles, lugar, sala y eco; el pump hace sitio al bombo"],
-        ["song", "clic en un carril para poner el loop en mano; arrastra los clips para moverlos"],
-        ["exportar", "la canción o una fila; la mezcla, un archivo por pista, midi"],
+        ["timeline", "clic en un carril para poner el loop en mano; arrastra los clips para moverlos"],
+        ["exportar", "el timeline o una fila; la mezcla, un archivo por pista, midi"],
       ],
     ],
     [

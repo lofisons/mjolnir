@@ -7,7 +7,12 @@
   import { app, act, live, pattern, track, writeNote, trackColor } from "../lib/app.svelte";
   import { TICKS_PER_STEP, noteName, scalePitches, chordOn, type Note, capture } from "../lib/api";
 
-  const ROW = 18;
+  // a finger needs taller rows, wider steps and a bigger edge to grab than a mouse does
+  const coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+  const ROW = coarse ? 26 : 20;
+  const MIN_STEP = coarse ? 15 : 10;
+  const GRAB = coarse ? 16 : 7;
+  const NAMES = 38;
   const pat = $derived(pattern());
   const bars = $derived(pat?.bars ?? 1);
   const steps = $derived(bars * 16);
@@ -25,15 +30,21 @@
 
   let box: HTMLDivElement;
   let width = $state(320);
-  const stepW = $derived(Math.max(9, (width - 34) / steps));
+  const stepW = $derived(Math.max(MIN_STEP, (width - NAMES) / steps));
 
   onMount(() => {
     const ro = new ResizeObserver(() => (width = box.clientWidth));
     ro.observe(box);
     width = box.clientWidth;
-    // open on the track's own octave
-    const home = rows.findIndex((p) => p <= base + 12);
-    box.scrollTop = Math.max(0, home * ROW - 8);
+    // open on what is written, in the middle of the view; on the track's own octave when nothing is
+    const written = (pat?.notes ?? []).map((n) => rowOf(n.pitch)).filter((r) => r >= 0);
+    if (written.length) {
+      const mid = (Math.min(...written) + Math.max(...written) + 1) / 2;
+      box.scrollTop = Math.max(0, mid * ROW - box.clientHeight / 2);
+    } else {
+      const home = rows.findIndex((p) => p <= base + 12);
+      box.scrollTop = Math.max(0, home * ROW - 8);
+    }
     return () => ro.disconnect();
   });
 
@@ -93,7 +104,7 @@
     const el = e.currentTarget as HTMLElement;
     capture(e);
     const r = el.getBoundingClientRect();
-    const mode = e.clientX > r.right - 7 && r.width > 12 ? "stretch" : "move";
+    const mode = e.clientX > r.right - GRAB && r.width > GRAB * 1.5 ? "stretch" : "move";
     drag = { note: n, x0: e.clientX, y0: e.clientY, mode, start: n.start, length: n.length, pitch: n.pitch, moved: false };
   }
   function noteMove(e: PointerEvent) {
@@ -137,7 +148,7 @@
 </script>
 
 <div class="roll" bind:this={box} onscroll={() => (tap = null)} style="--id: {trackColor(t)}">
-  <div class="sheet" style="height: {rows.length * ROW}px; width: {34 + steps * stepW}px">
+  <div class="sheet" style="height: {rows.length * ROW}px; width: {NAMES + steps * stepW}px; --names: {NAMES}px">
     <div class="names">
       {#each rows as p}
         <span class="name" class:root={(((p - scale.root) % 12) + 12) % 12 === 0} style="height: {ROW}px">{noteName(p).toLowerCase()}</span>
@@ -182,7 +193,6 @@
   .roll {
     height: 100%;
     overflow: auto;
-    border: 1px solid var(--line);
     overscroll-behavior: contain;
   }
   .sheet {
@@ -193,7 +203,7 @@
     position: sticky;
     left: 0;
     z-index: 2;
-    width: 34px;
+    width: var(--names);
     flex: none;
     background: var(--bg);
     border-right: 1px solid var(--line);
@@ -227,6 +237,14 @@
     touch-action: none;
     /* the right edge stretches */
     border-right: 3px solid color-mix(in srgb, var(--id) 60%, var(--bg));
+  }
+  @media (pointer: coarse) {
+    .note {
+      border-right-width: 6px;
+    }
+    .name {
+      font: var(--ui);
+    }
   }
   .note.held {
     outline: 1px solid var(--fg);

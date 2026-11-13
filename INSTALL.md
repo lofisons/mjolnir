@@ -19,18 +19,18 @@ To host it yourself, serve the `docs/` folder of this repository from any static
 ## Linux
 
 ```bash
-chmod +x Mjolnir-0.2.0-x86_64.AppImage
+chmod +x Mjolnir-0.3.0-x86_64.AppImage
 ```
 
 ```bash
-./Mjolnir-0.2.0-x86_64.AppImage
+./Mjolnir-0.3.0-x86_64.AppImage
 ```
 
 If it does not start for want of FUSE, run it with `--appimage-extract-and-run`.
 
 ## Windows
 
-Run `Mjolnir-0.2.0-setup.exe`, or just start `Mjolnir-0.2.0-portable.exe`, which installs nothing. SmartScreen will say the publisher is unknown: *More info* → *Run anyway*.
+Run `Mjolnir-0.3.0-setup.exe`, or just start `Mjolnir-0.3.0-portable.exe`, which installs nothing. SmartScreen will say the publisher is unknown: *More info* → *Run anyway*.
 
 ## macOS
 
@@ -42,11 +42,11 @@ xattr -cr /Applications/Mjolnir.app
 
 ## Android
 
-Open `Mjolnir-0.2.0.apk` on the phone and allow your file manager or browser to install apps when asked. It needs Android 8 or newer. Exports land in `Downloads/Mjolnir`.
+Open `Mjolnir-0.3.0.apk` on the phone and allow your file manager or browser to install apps when asked. It needs Android 8 or newer. Exports land in `Downloads/Mjolnir`.
 
 ## VST 3 (in a DAW)
 
-Unzip `Mjolnir-0.2.0-vst3.zip` and copy the `Mjolnir.vst3` of your system to the plugin folder:
+Unzip `Mjolnir-0.3.0-vst3.zip` and copy the `Mjolnir.vst3` of your system to the plugin folder:
 
 | System | Copy | To |
 |---|---|---|

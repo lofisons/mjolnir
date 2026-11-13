@@ -86,6 +86,18 @@ export async function act<T = unknown>(action: Action): Promise<T | undefined> {
   }
 }
 
+// tap tempo: the pace of the last few taps
+let taps: number[] = [];
+export function tapTempo(): void {
+  const now = performance.now();
+  if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
+  taps.push(now);
+  if (taps.length > 5) taps.shift();
+  if (taps.length < 2) return;
+  const beat = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
+  void act({ type: "set_bpm", bpm: Math.round(Math.min(200, Math.max(40, 60000 / beat))) });
+}
+
 /** A gesture that needs no answer: a pad, a knob while it turns. */
 export function live(action: Action): void {
   engine.wake();
@@ -388,9 +400,8 @@ export async function toggleStep(step: number): Promise<void> {
   const pitch = padPitch();
   const start = step * TICKS_PER_STEP;
   await act({ type: "toggle_step", track: t, slot: s, step, pitch, velocity: 0.8 });
-  // a step just switched on is the one whose detail shows
-  const on = pattern(t, s)?.notes.some((n) => n.start === start && n.pitch === pitch);
-  app.pick = on ? { start, pitch } : null;
+  // writing is not asking: a step's detail shows when it is held, not every time one is written
+  if (app.pick?.start === start && app.pick?.pitch === pitch) app.pick = null;
   await hear(t, s);
 }
 
@@ -588,7 +599,7 @@ export async function exportAudio(choice: ExportChoice): Promise<void> {
   const p = app.project;
   if (!p) return;
   if (choice.scope === "song" && !p.song.clips.length) {
-    app.note = "the song is empty → place loops on it first, or export the row";
+    app.note = "the timeline is empty → place loops on it first, or export the row";
     return;
   }
   app.busy = "rendering";

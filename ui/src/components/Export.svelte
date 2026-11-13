@@ -19,7 +19,7 @@
     </div>
     <div class="line">
       <span class="label">{tx("what")}</span>
-      <button aria-pressed={choice.scope === "song"} disabled={!hasSong} onclick={() => (choice.scope = "song")}>{tx("the song")}</button>
+      <button aria-pressed={choice.scope === "song"} disabled={!hasSong} onclick={() => (choice.scope = "song")}>{tx("the timeline")}</button>
       <button aria-pressed={choice.scope === "row"} onclick={() => (choice.scope = "row")}>{tx("row")} {row} {tx("as a loop")}</button>
     </div>
     <div class="line">

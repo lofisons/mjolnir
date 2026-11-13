@@ -706,6 +706,7 @@ impl Controller {
         }
         match (&mut self.project.tracks[track].instrument, pad) {
             (InstrumentSpec::CustomSynth { name: n, .. }, None)
+            | (InstrumentSpec::Macro { name: n, .. }, None)
             | (InstrumentSpec::CustomKit { name: n, .. }, None) => *n = name,
             (InstrumentSpec::CustomKit { names, .. }, Some(p)) if p < DRUM_PADS => {
                 if names.len() <= p {

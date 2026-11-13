@@ -30,7 +30,9 @@
   let pressing: ReturnType<typeof setTimeout> | null = null;
   let picked = false;
   const pickStep = (i: number) => (app.pick = { start: (app.page * 16 + i) * TICKS_PER_STEP, pitch: padPitch() });
-  function stepDown(i: number, lit: boolean) {
+  function stepDown(e: PointerEvent, i: number, lit: boolean) {
+    // the right button asks about a step; it never writes one
+    if (e.pointerType === "mouse" && e.button !== 0) return void (picked = true);
     picked = false;
     if (!lit) return;
     pressing = setTimeout(() => {
@@ -87,9 +89,13 @@
 <svelte:window onkeydown={keydown} onkeyup={keyup} />
 
 <div class="play">
-  <div class="head">
-    <span class="what">{(app.pads[app.pad]?.label ?? "").toLowerCase()}</span>
-    <LoopTools />
+  <div class="head top">
+    {#if app.pick && pat}
+      <NoteDetail named={false} inline />
+    {:else}
+      <span class="what">{(app.pads[app.pad]?.label ?? "").toLowerCase()}</span>
+      <LoopTools />
+    {/if}
   </div>
   {#if bars > 1}
     <div class="head">
@@ -118,7 +124,7 @@
         class:picked={isPicked(i)}
         aria-pressed={lit}
         aria-label="step {i + 1}"
-        onpointerdown={() => stepDown(i, lit)}
+        onpointerdown={(e) => stepDown(e, i, lit)}
         onpointerup={() => stepUp(i)}
         onpointerleave={() => pressing && clearTimeout(pressing)}
         oncontextmenu={(e) => {
@@ -131,8 +137,6 @@
       </button>
     {/each}
   </div>
-
-  <NoteDetail named={false} />
 
   <div class="pads" role="group" aria-label="pads">
     {#each app.pads as pad, i}
@@ -169,6 +173,11 @@
     align-items: center;
     gap: 4px 6px;
     min-height: 24px;
+  }
+  /* one height whatever it holds: the steps and the pads never move */
+  .head.top {
+    flex-wrap: nowrap;
+    height: 44px;
   }
   .what {
     overflow: hidden;

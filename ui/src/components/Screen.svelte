@@ -3,7 +3,7 @@
   // The screen: the signal itself, drawn as sand. Every point is a real
   // sample of what is sounding; older frames fade like a long exposure.
   import { onMount } from "svelte";
-  import { app, signal, track, playing, trackColor } from "../lib/app.svelte";
+  import { app, act, signal, track, playing, trackColor, tapTempo } from "../lib/app.svelte";
 
   let canvas: HTMLCanvasElement;
   let box: HTMLDivElement;
@@ -15,6 +15,31 @@
   });
   // what the selected track is called (its sound, unless it was renamed)
   const sound = $derived(track()?.name ?? "");
+
+  // ---- the tempo, changed where it is read
+  const bpm = $derived(Math.round(app.project?.bpm ?? 0));
+  let tempo = $state<{ right: number; top: number } | null>(null);
+  let sheet = $state<HTMLDivElement | null>(null);
+  function openTempo(e: MouseEvent) {
+    if (tempo) return void (tempo = null);
+    const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    tempo = { right: Math.max(8, innerWidth - b.right - 8), top: b.bottom + 6 };
+  }
+  const nudge = (by: number) => act({ type: "set_bpm", bpm: Math.min(200, Math.max(40, bpm + by)) });
+  $effect(() => {
+    if (!tempo) return;
+    const away = (e: Event) => {
+      const t = e.target as Element;
+      if (!sheet?.contains(t) && !t.closest?.(".bpm")) tempo = null;
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && (tempo = null);
+    addEventListener("pointerdown", away, true);
+    addEventListener("keydown", key);
+    return () => {
+      removeEventListener("pointerdown", away, true);
+      removeEventListener("keydown", key);
+    };
+  });
 
   onMount(() => {
     const g = canvas.getContext("2d")!;
@@ -109,11 +134,22 @@
       {app.project?.record.notes && playing() ? tx("recording") : playing() ? tx("playing") : tx("stopped")}
     </span>
   </div>
-  <div class="br">
-    <span>{Math.round(app.project?.bpm ?? 0)}</span>
+  <button class="plain br bpm" aria-label="tempo: {bpm} bpm" aria-expanded={!!tempo} onclick={openTempo}>
+    <span>{bpm}</span>
     <span class="label">bpm</span>
-  </div>
+  </button>
 </div>
+
+{#if tempo}
+  <div class="tempo" bind:this={sheet} role="group" aria-label="tempo" style="right: {tempo.right}px; top: {tempo.top}px">
+    <button aria-label="slower by five" onclick={() => nudge(-5)}>−5</button>
+    <button aria-label="slower" onclick={() => nudge(-1)}>−</button>
+    <span class="now">{bpm}</span>
+    <button aria-label="faster" onclick={() => nudge(1)}>+</button>
+    <button aria-label="faster by five" onclick={() => nudge(5)}>+5</button>
+    <button onclick={tapTempo}>tap</button>
+  </div>
+{/if}
 
 <style>
   .screen {
@@ -158,5 +194,46 @@
   }
   .quiet {
     color: var(--fg-muted);
+  }
+  /* the one reading on the screen that is also a control */
+  .bpm {
+    pointer-events: auto;
+    height: auto;
+    padding: 4px 8px;
+    margin: -4px -8px;
+    border: 0;
+    cursor: pointer;
+  }
+  .bpm:hover,
+  .bpm[aria-expanded="true"] {
+    background: var(--hover);
+  }
+  .tempo {
+    position: fixed;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    background: var(--bg);
+    border: 1px solid var(--edge);
+  }
+  .tempo button {
+    height: 36px;
+    min-width: 40px;
+    padding: 0 8px;
+    border-color: var(--line);
+  }
+  .tempo .now {
+    min-width: 4ch;
+    text-align: center;
+    font: var(--ui-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (pointer: coarse) {
+    .tempo button {
+      height: 44px;
+      min-width: 44px;
+    }
   }
 </style>

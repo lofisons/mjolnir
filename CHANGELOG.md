@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+Less in the way between an idea and a loop.
+
+- The notes view is rebuilt around the piano roll: one line of tools (note length, bars, chords, edit) that open as sheets over the roll, a keyboard that folds away, taller rows and bigger grips on touch, and a picked note's detail in the bar, so nothing jumps.
+- Hold a loop, or right click it: open, copy, paste, copy to the next free row, delete. On a track's name: open, mute, remove. On a section's letter: play the row, copy it to the next empty row, clear it.
+- `+` adds a track from a menu where the hand is, and the new track opens on its sounds. New tracks start with a sound that is on the shelves (the Shadow kit, the soft piano).
+- The tempo is changed on the screen: touch the bpm for −, +, and tap.
+- Drums: a step's detail opens when the step is held, in the header's own line, so the pads never move. Writing a step no longer opens it, and the right button no longer switches a step off.
+- A phone gives the screen less height and the work more.
+- The song face is called **timeline**.
+- English until another language is chosen in `set`: following the device's language left stray translated words on an English screen.
+
 ## 0.2.0
 
 - A VST 3 instrument for Windows, macOS and Linux: the 45 sounds, the seven knobs, tape, vinyl and warmth, and the ready-made drum loops in time with the host's song.
