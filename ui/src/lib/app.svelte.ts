@@ -610,7 +610,22 @@ export interface ExportChoice {
   mix: boolean;
   stems: boolean;
   midi: boolean;
+  /** A genre: the mix is finished by Freya in it. Empty: the mix as it is. */
+  freya: string;
 }
+
+/** Freya's genres, as its engine names them. */
+export const FREYA_GENRES: [id: string, label: string][] = [
+  ["lofi", "lofi"],
+  ["acoustic", "acoustic"],
+  ["metalcore", "metalcore"],
+  ["pop", "pop"],
+  ["trap", "trap"],
+  ["postpunk", "post-punk"],
+  ["punk", "punk"],
+  ["posthardcore", "post-hardcore"],
+  ["hardrock", "hard rock"],
+];
 
 /** Bounce the song (or one row, as a loop) to audio and MIDI files. */
 export async function exportAudio(choice: ExportChoice): Promise<void> {
@@ -641,14 +656,16 @@ export async function exportAudio(choice: ExportChoice): Promise<void> {
       name = `${name} ${(p.scenes[row]?.name ?? String(row + 1)).toLowerCase()}`;
     }
     const tracks = choice.stems ? p.tracks.map((_, i) => i + 1) : [];
-    const what = [...(choice.mix ? [0] : []), ...(choice.midi ? [-1] : []), ...tracks];
+    const what: (number | string)[] = [...(choice.mix ? [choice.freya || 0] : []), ...(choice.midi ? [-1] : []), ...tracks];
     if (!what.length) throw "choose something to export";
-    const out = await engine.render(json, what);
+    const { out, freya } = await engine.render(json, what);
+    if (freya?.err) throw freya.err;
     const files: engine.OutFile[] = [];
     what.forEach((w, i) => {
       const data = out[i];
       if (!data) return;
       if (w === 0) files.push({ name: `${name}.wav`, data, type: "audio/wav" });
+      else if (typeof w === "string") files.push({ name: `${name} ${w}.wav`, data, type: "audio/wav" });
       else if (w === -1) files.push({ name: `${name}.mid`, data, type: "audio/midi" });
       else {
         const t = p.tracks[w - 1];
@@ -660,7 +677,8 @@ export async function exportAudio(choice: ExportChoice): Promise<void> {
     const bundle: engine.OutFile[] =
       files.length > 1 ? [{ name: `${name}.zip`, data: new Uint8Array(await engine.zip(files).arrayBuffer()), type: "application/zip" }] : files;
     const where = await engine.deliver(bundle, name);
-    app.note = where || "";
+    // how Freya's mix measures stays on the status line: it is the only way to know without listening
+    app.note = freya?.ok ? `freya: ${freya.ok.lufs} LUFS, peak ${freya.ok.peak_db} dB${where ? ` · ${where}` : ""}` : where || "";
     app.exporting = false;
   } catch (e) {
     app.note = String(e);

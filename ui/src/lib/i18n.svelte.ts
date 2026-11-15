@@ -102,6 +102,11 @@ const ES: Record<string, string> = {
   "the timeline": "el timeline",
   "the mix": "la mezcla",
   "one file per track": "un archivo por pista",
+  mix: "mezcla",
+  "as it is": "tal cual",
+  "finished by freya": "terminada por freya",
+  genre: "género",
+  "freya balances and masters the tracks for the genre, in place of this set's master": "freya balancea y masteriza las pistas para el género, en lugar del master de este set",
   row: "fila",
   "as a loop": "como loop",
   // set

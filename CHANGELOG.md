@@ -4,6 +4,7 @@
 
 - An agent can make music in Mjolnir through the Model Context Protocol: write loops, build drum parts, shape synths and kits, arrange a song. In the desktop app (**Agent → Let an agent play**), on the set that is open; or as `mjolnir-mcp`, with no window, on a set as a file, with WAV and MIDI out. See [guide/AGENTS.md](guide/AGENTS.md).
 - A synth sound can be renamed.
+- **Finished by Freya.** Export can hand the mix to [Freya](https://github.com/lofisons/freya), lofisons' mixing helper, built in: choose a genre (lofi, acoustic, metalcore, pop, trap, post-punk, punk, post-hardcore, hard rock) and every track is balanced, placed and treated for what it is, then mastered to the genre's loudness. An agent asks for the same with `render`'s `freya`.
 
 ## 0.4.0
 

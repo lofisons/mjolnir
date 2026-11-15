@@ -89,14 +89,29 @@ export function onStatus(cb: (s: Status, scope: Float32Array) => void): void {
   listener = cb;
 }
 
-/** Bounce a project file offline: `what` is 0 for the mix, -1 for MIDI, n for track n's stem. */
-export function render(json: string, what: number[]): Promise<(Uint8Array | null)[]> {
+/** What Freya answered about a mix it finished. */
+export interface FreyaReport {
+  genre: string;
+  seconds: number;
+  lufs: number;
+  target_lufs: number;
+  peak_db: number;
+  limiting_db: number;
+  tracks: { track: number; name: string; role: string }[];
+  notes: string[];
+}
+
+/**
+ * Bounce a project file offline: `what` is 0 for the mix, -1 for MIDI, n for
+ * track n's stem, or a genre's id for the mix finished by Freya.
+ */
+export function render(json: string, what: (number | string)[]): Promise<{ out: (Uint8Array | null)[]; freya: { ok?: FreyaReport; err?: string } | null }> {
   return new Promise((ok, err) => {
     if (!wasm) return err("the engine is not loaded");
     const worker = new Worker(asset("render-worker.js"));
     worker.onmessage = (e) => {
       worker.terminate();
-      ok(e.data.out);
+      ok({ out: e.data.out, freya: e.data.freya ?? null });
     };
     worker.onerror = (e) => {
       worker.terminate();

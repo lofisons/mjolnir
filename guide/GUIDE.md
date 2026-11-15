@@ -70,6 +70,8 @@ One lane per track. Choose a section at the top; a click on a lane places that t
 
 **Export** bounces the timeline, or just the row on screen as a loop: the mix, one file per track, MIDI. Several files arrive as one zip.
 
+**Finished by Freya.** The mix can leave as it is, through this set's own master, or **finished by freya**: choose a genre and Freya, lofisons' mixing helper, takes each track on its own, treats it for what it is (drums, a sub, keys, a pad, a lead), sets its level against the others, and masters the sum to the loudness that genre is played at. A track's name is believed (`bass`, `lead`, `vox`…); otherwise its sound says what it is. Each track keeps its sound, its knobs, its room and echo, and its pan if anything was panned; the set's own master and pump step aside, and tape, warmth and vinyl carry over as Freya's tape and dust. When the file arrives the status line says how it measures (`freya: -16 LUFS, peak -1 dB`). It takes several times longer than the plain mix: every track is bounced once.
+
 ## Mix
 
 ![Mix and the punch strip](img/desk-mix.jpg)

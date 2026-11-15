@@ -7,7 +7,7 @@
 
 use std::cell::UnsafeCell;
 
-use mjolnir_app::{Action, App};
+use mjolnir_app::{freya, Action, App};
 use mjolnir_engine::controller::Controller;
 use mjolnir_engine::engine::Engine;
 use mjolnir_engine::export;
@@ -153,3 +153,51 @@ pub unsafe extern "C" fn mj_render(
     };
     answer(bytes)
 }
+
+/// Bounce a project file (JSON text) finished by Freya in a genre: the mix
+/// as a WAV. Returns 0 when it could not be done; `mj_freya_report` then
+/// says why, and after a bounce says how it measures. Meant for a worker's
+/// own instance, like `mj_render`: copy the WAV out before asking for the
+/// report, which takes its place.
+///
+/// # Safety
+/// `ptr` must point at `len` bytes and `genre` at `genre_len` bytes, both
+/// written into memory from `mj_alloc`.
+#[no_mangle]
+pub unsafe extern "C" fn mj_render_freya(ptr: *const u8, len: usize, sample_rate: u32, genre: *const u8, genre_len: usize) -> usize {
+    let done = (|| {
+        let text = std::str::from_utf8(input(ptr, len)).map_err(|_| "the set is not text".to_string())?;
+        let genre = std::str::from_utf8(input(genre, genre_len)).map_err(|_| "the genre is not text".to_string())?;
+        let (_engine, endpoints) = Engine::new(sample_rate as f32);
+        let mut ctrl = Controller::new(endpoints, sample_rate as f32);
+        ctrl.open_json(text)?;
+        let f = freya::finish(&ctrl.project, ctrl.samples(), sample_rate, genre)?;
+        Ok::<_, String>((export::wav_bytes(&f.audio, sample_rate)?, f.report))
+    })();
+    // SAFETY: single-threaded.
+    let report = &mut *FREYA.0.get();
+    match done {
+        Ok((wav, r)) => {
+            *report = json!({ "ok": r });
+            answer(wav)
+        }
+        Err(e) => {
+            *report = json!({ "err": e });
+            answer(Vec::new())
+        }
+    }
+}
+
+/// What the last `mj_render_freya` reported, as JSON: `{"ok": …}` with the
+/// loudness, the peak, each track's role and Freya's notes, or `{"err": "…"}`.
+#[no_mangle]
+pub extern "C" fn mj_freya_report() -> usize {
+    // SAFETY: single-threaded.
+    let report = unsafe { &*FREYA.0.get() };
+    answer(serde_json::to_vec(report).unwrap_or_default())
+}
+
+struct Report(UnsafeCell<Value>);
+// One thread only, as `STATE`.
+unsafe impl Sync for Report {}
+static FREYA: Report = Report(UnsafeCell::new(Value::Null));

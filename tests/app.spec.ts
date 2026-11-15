@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 // End to end: the built app, the real engine, a real browser. Each test
 // starts with an empty browser, so the first thing on screen is the first
 // demo, as it is for a person who opens Mjolnir for the first time.
@@ -269,6 +270,32 @@ test("the song places, moves and exports", async ({ page }) => {
     page.locator(".sheet").getByRole("button", { name: "export", exact: true }).click(),
   ]);
   expect(download.suggestedFilename()).toBe("Shadow walk.zip");
+});
+
+test("a row is exported finished by freya", async ({ page }) => {
+  await tab(page, "timeline");
+  await page.getByRole("button", { name: "export", exact: true }).click();
+  const sheet = page.locator(".sheet");
+  await sheet.getByRole("button", { name: /as a loop/ }).click();
+  // the genres appear only once freya is asked for
+  await expect(sheet.getByRole("button", { name: "trap", exact: true })).toHaveCount(0);
+  await sheet.getByRole("button", { name: "finished by freya" }).click();
+  await expect(sheet.getByRole("button", { name: "lofi", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await sheet.getByRole("button", { name: "trap", exact: true }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 120_000 }),
+    sheet.getByRole("button", { name: "export", exact: true }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^Shadow walk \S+ trap\.wav$/);
+  const bytes = readFileSync((await download.path())!);
+  expect(bytes.subarray(0, 4).toString()).toBe("RIFF");
+  expect(bytes.length).toBeGreaterThan(200_000);
+  // how it measures is said where the result is announced: trap aims at -9 LUFS under a -1 dB ceiling
+  const said = (await sentence(page).textContent()) ?? "";
+  const m = said.match(/freya: (-?[\d.]+) LUFS, peak (-?[\d.]+) dB/);
+  expect(m, said).not.toBeNull();
+  expect(Math.abs(Number(m![1]) + 9)).toBeLessThan(2);
+  expect(Number(m![2])).toBeLessThanOrEqual(-0.9);
 });
 
 test("sets are kept, copied, removed and survive a reload", async ({ page }) => {

@@ -239,6 +239,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
+name = "freya-engine"
+version = "0.1.0"
+source = "git+https://github.com/lofisons/freya#339ae9a5eff664546c6904a0346589fce1b4e8bb"
+dependencies = [
+ "hound",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "futures-core"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -476,6 +486,7 @@ name = "mjolnir-app"
 version = "0.4.0"
 dependencies = [
  "base64",
+ "freya-engine",
  "mjolnir-engine",
  "serde",
  "serde_json",

@@ -2,6 +2,7 @@
 //! JSON out. The browser build, the desktop shell and the plugin all drive the
 //! engine through this one door.
 
+pub mod freya;
 pub mod mcp;
 
 use mjolnir_engine::controller::Controller;

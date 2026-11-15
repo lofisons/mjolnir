@@ -55,7 +55,7 @@ The file is opened if it exists and is where `save_set` writes. Nothing is saved
 | `arrange` | The sections of the song, in order |
 | `play`, `stop` | The transport of the app that is listening |
 | `undo` | Take back the last tool calls; each one is one step |
-| `open_set`, `save_set`, `render`, `export_midi` | `mjolnir-mcp` only: files, a WAV bounce with its loudness, a MIDI file |
+| `open_set`, `save_set`, `render`, `export_midi` | `mjolnir-mcp` only: files, a WAV bounce with its loudness, a MIDI file. `render` with `freya` (a genre: `lofi`, `acoustic`, `metalcore`, `pop`, `trap`, `postpunk`, `punk`, `posthardcore`, `hardrock`) bounces the song mixed and mastered by Freya, and adds its loudness in LUFS, the role each track was given, and notes on what stands out |
 
 Time is in beats (quarter notes) from the start of a loop. Pitches are note names (`A2`, `F#3`; `C4` is middle C) or MIDI numbers; on a drum track, a pad's name (`kick`, `snare`, `hat`). Sections are letters `A` to `H`, tracks are numbered from 0. When something is wrong the answer says what and what to try.
 

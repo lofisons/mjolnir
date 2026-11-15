@@ -37,6 +37,10 @@ Because every app host runs the same module in a Chromium (or WebKit) audio work
 
 `examples/parts` prints the cost of each stage in nanoseconds per sample; the audio callback is tested never to allocate.
 
+## Finished by Freya
+
+`crates/app/src/freya.rs` is the bridge to [Freya](https://github.com/lofisons/freya)'s engine (`freya-engine`, a git dependency pinned in `Cargo.lock`). Offline only: each track is rendered as a stem by the same `export::render`, through a master that only passes it on (no tape, warmth, vinyl or pump, and well under the limiter), given a role from its name or its sound, and handed to Freya's `auto_mix` with the genre; Freya renders the sum through its own master. The bounce worker reaches it as `mj_render_freya` and `mj_freya_report`; `mjolnir-mcp` as `render`'s `freya`. The plugin does not carry it.
+
 ## Files
 
 A set is JSON: the project plus any recordings as base64 WAV. Notes carry start, length, pitch, level and, when not the default, chance and repeat. Sounds that are no longer offered (the first synth presets, the Dust kit) still load.

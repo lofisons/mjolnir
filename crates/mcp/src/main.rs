@@ -14,7 +14,7 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 use mjolnir_app::mcp::{self, Host};
-use mjolnir_app::{Action, App};
+use mjolnir_app::{freya, Action, App};
 use mjolnir_engine::controller::Controller;
 use mjolnir_engine::engine::Engine;
 use mjolnir_engine::export;
@@ -98,11 +98,12 @@ impl Host for Disk {
         vec![
             tool("open_set", "Open a set from a .mjolnir file. It replaces the set in memory: save first if that one matters.", json!({ "path": { "type": "string", "description": "The file to open." } }), &["path"]),
             tool("save_set", "Save the set to a .mjolnir file, which the Mjolnir app opens. With no path it goes back to the file it came from.", json!({ "path": { "type": "string", "description": "Where to save. Must end in .mjolnir." } }), &[]),
-            tool("render", "Bounce the music to a WAV file (48 kHz, 24-bit, stereo) so it can be listened to: the whole song, or one section. Answers how long it is and how loud (peak and average, in dB below full scale), which is the only way to check the result without ears: silence means nothing was written or everything is muted; a peak at 0 means it is clipping.", json!({
+            tool("render", "Bounce the music to a WAV file (48 kHz, 24-bit, stereo) so it can be listened to: the whole song, or one section, as it is or finished by Freya in a genre (`freya`). Answers how long it is and how loud (peak and average, in dB below full scale), which is the only way to check the result without ears: silence means nothing was written or everything is muted; a peak at 0 means it is clipping.", json!({
                 "path": { "type": "string", "description": "Where to write it. Must end in .wav." },
                 "section": { "type": "string", "description": "A letter A to H: bounce that section's loops instead of the song." },
                 "bars": { "type": "integer", "minimum": 1, "maximum": 64, "description": "With `section`: for how many bars. Default: its longest loop, rounded up to 4." },
-                "track": { "type": "integer", "minimum": 0, "description": "Only this track (a stem)." }
+                "track": { "type": "integer", "minimum": 0, "description": "Only this track (a stem)." },
+                "freya": { "type": "string", "enum": mjolnir_app::freya::genre_ids(), "description": "Finish the bounce with Freya, lofisons' mixing helper, in this genre: every track gets the chain, level and place its role asks for, and a master that reaches the genre's loudness instead of the set's own master. The answer adds the loudness in LUFS, the role each track was given, and notes on what stands out. Not with `track`." }
             }), &["path"]),
             tool("export_midi", "Write the song's notes as a standard MIDI file, one track per track, for a DAW.", json!({ "path": { "type": "string", "description": "Where to write it. Must end in .mid." } }), &["path"]),
         ]
@@ -136,18 +137,30 @@ impl Host for Disk {
                     Some(t) => return Err(format!("there is no track {t}")),
                     None => None,
                 };
-                let audio = export::render(&ctrl.project, ctrl.samples(), SAMPLE_RATE, solo, 2.0);
+                let finished = match args["freya"].as_str() {
+                    Some(_) if solo.is_some() => return Err("freya finishes the whole song, not one track → leave out `track`, or leave out `freya`".into()),
+                    Some(genre) => Some(freya::finish(&ctrl.project, ctrl.samples(), SAMPLE_RATE, genre)?),
+                    None => None,
+                };
+                let (audio, report) = match finished {
+                    Some(f) => (f.audio, Some(f.report)),
+                    None => (export::render(&ctrl.project, ctrl.samples(), SAMPLE_RATE, solo, 2.0), None),
+                };
                 let peak = audio.iter().fold(0.0f32, |a, s| a.max(s.abs()));
                 let rms = if audio.is_empty() { 0.0 } else { (audio.iter().map(|s| (*s as f64) * (*s as f64)).sum::<f64>() / audio.len() as f64).sqrt() as f32 };
                 write(&path, &export::wav_bytes(&audio, SAMPLE_RATE)?)?;
                 let bars = ctrl.project.song.length_bars();
-                Ok(json!({
+                let mut out = json!({
                     "wrote": path.display().to_string(),
                     "bars": bars,
                     "seconds": (audio.len() as f64 / 2.0 / SAMPLE_RATE as f64 * 10.0).round() / 10.0,
                     "peak_db": db(peak),
                     "average_db": db(rms),
-                }))
+                });
+                if let Some(report) = report {
+                    out["freya"] = report;
+                }
+                Ok(out)
             })(),
             "export_midi" => (|| {
                 let path = path_arg(args, &["mid", "midi"])?;

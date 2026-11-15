@@ -87,6 +87,12 @@ fn a_set_is_written_bounced_saved_and_opened_again() {
 
     s.ok("arrange", json!({ "sections": ["A", "A"] }));
     assert_eq!(s.ok("render", json!({ "path": wav_s }))["bars"], 8);
+    // finished by Freya: the same song, mastered for a genre, with the numbers to judge it by
+    let f = s.ok("render", json!({ "path": wav_s, "freya": "lofi" }));
+    assert!((f["freya"]["lufs"].as_f64().unwrap() + 16.0).abs() < 1.5, "{f}");
+    assert_eq!(f["freya"]["tracks"][0]["role"], "drums");
+    let (why, failed) = s.tool("render", json!({ "path": wav_s, "freya": "lofi", "track": 0 }));
+    assert!(failed && why.as_str().unwrap().contains("whole song"), "{why}");
     assert!(s.ok("export_midi", json!({ "path": mid_s }))["bytes"].as_u64().unwrap() > 50);
     assert_eq!(&std::fs::read(&mid).unwrap()[..4], b"MThd");
 

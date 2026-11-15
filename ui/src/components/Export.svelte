@@ -1,13 +1,15 @@
 <script lang="ts">
   import { tx } from "../lib/i18n.svelte";
   // The export sheet: what to bounce, and into which files.
-  import { app, exportAudio, type ExportChoice } from "../lib/app.svelte";
+  import { app, exportAudio, FREYA_GENRES, type ExportChoice } from "../lib/app.svelte";
 
   const hasSong = $derived((app.project?.song.clips.length ?? 0) > 0);
-  let choice = $state<ExportChoice>({ scope: "song", mix: true, stems: false, midi: false });
+  let choice = $state<ExportChoice>({ scope: "song", mix: true, stems: false, midi: false, freya: "" });
   $effect(() => {
     if (!hasSong) choice.scope = "row";
   });
+  // the genre last finished in is remembered while the sheet is closed and opened
+  let genre = $state("lofi");
   const row = $derived((app.project?.scenes[app.section]?.name ?? "").toLowerCase());
 </script>
 
@@ -28,6 +30,22 @@
       <button aria-pressed={choice.stems} onclick={() => (choice.stems = !choice.stems)}>{tx("one file per track")}</button>
       <button aria-pressed={choice.midi} onclick={() => (choice.midi = !choice.midi)}>midi</button>
     </div>
+    {#if choice.mix}
+      <div class="line">
+        <span class="label">{tx("mix")}</span>
+        <button aria-pressed={!choice.freya} onclick={() => (choice.freya = "")}>{tx("as it is")}</button>
+        <button aria-pressed={!!choice.freya} onclick={() => (choice.freya = genre)}>{tx("finished by freya")}</button>
+      </div>
+      {#if choice.freya}
+        <div class="line genres" role="group" aria-label={tx("genre")}>
+          <span class="label"></span>
+          {#each FREYA_GENRES as [id, label] (id)}
+            <button aria-pressed={choice.freya === id} onclick={() => (choice.freya = genre = id)}>{label}</button>
+          {/each}
+        </div>
+        <p class="note about">{tx("freya balances and masters the tracks for the genre, in place of this set's master")}</p>
+      {/if}
+    {/if}
     <div class="line end">
       <span class="note" role="status">{app.busy ? tx("rendering") : tx(app.note) || "24-bit wav, 44.1 kHz"}</span>
       <button disabled={!!app.busy || !(choice.mix || choice.stems || choice.midi)} onclick={() => exportAudio(choice)}>
@@ -80,5 +98,8 @@
   }
   .note {
     color: var(--fg-muted);
+  }
+  .about {
+    margin: -8px 0 0 44px;
   }
 </style>

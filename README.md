@@ -34,6 +34,10 @@ Every package is built by one script, on one Linux machine: see [INSTALL.md](INS
 
 The manual is in [guide/GUIDE.md](guide/GUIDE.md).
 
+## Finished by Freya
+
+Mjolnir makes the music; [Freya](https://github.com/lofisons/freya), lofisons' mixing helper, can finish it. In **export**, choose **finished by freya** and a genre: every track is balanced, placed and treated for what it is, and the song is mastered to that genre's loudness, with no stems to carry anywhere. Freya's engine is built in.
+
 ## With an agent
 
 Mjolnir speaks the Model Context Protocol: an agent can write loops, shape sounds and arrange a song, inside the desktop app while you listen or on its own as a file. See [guide/AGENTS.md](guide/AGENTS.md).
@@ -43,7 +47,7 @@ Mjolnir speaks the Model Context Protocol: an agent can write loops, shape sound
 | Path | What |
 |---|---|
 | `crates/engine` | The audio engine, sequencer and project model. Rust, hand-written DSP, real-time safe, tested. |
-| `crates/app` | Every action a person can take, as JSON in and JSON out. One door for every host. |
+| `crates/app` | Every action a person can take, as JSON in and JSON out. One door for every host. Also the bridge to Freya's engine (`freya.rs`). |
 | `crates/web` | The engine as a WebAssembly module with a plain C interface, for an AudioWorklet. |
 | `ui` | The interface (Svelte), drawn with VSGARD. It talks to the engine only through actions. |
 | `desktop` | The desktop shell (Electron) around the same web app. |
